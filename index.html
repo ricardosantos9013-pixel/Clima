@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b2a5b">
+<meta name="description" content="Clima em tempo real com alertas de chuva, neve, tempestade, tornado e furacão. Previsão de 7 dias para qualquer cidade do mundo.">
+<title>Clima Alerta | Tempo real e previsão de 7 dias</title>
+<style>
+:root{
+  --bg1:#0b2a5b; --bg2:#2d8cff; --card:rgba(255,255,255,.14); --borda:rgba(255,255,255,.22);
+  --txt:#fff; --suave:rgba(255,255,255,.75);
+  --a1:#f5c518; --a2:#ff8a1f; --a3:#e5243b; --a0:#22c55e;
+  --fonte:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+}
+body.t-noite{--bg1:#050b1f;--bg2:#1b2a63}
+body.t-chuva{--bg1:#1b2b45;--bg2:#4a6a8f}
+body.t-neve{--bg1:#4a6585;--bg2:#a9c4de}
+body.t-tempestade{--bg1:#120d26;--bg2:#46386b}
+body.t-nublado{--bg1:#2d3f5c;--bg2:#7b93b3}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{font-family:var(--fonte);color:var(--txt);min-height:100vh;background:var(--bg1);line-height:1.45;padding-bottom:30px}
+body::before{content:"";position:fixed;inset:0;z-index:-1;background:linear-gradient(170deg,var(--bg1),var(--bg2))}
+button,input{font-family:inherit}
+.container{width:min(760px,94%);margin:auto}
+
+/* Busca */
+.topo{position:sticky;top:0;z-index:30;padding:max(10px,env(safe-area-inset-top)) 0 10px;background:linear-gradient(180deg,rgba(0,0,0,.28),transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.busca{display:flex;gap:8px}
+.busca input{flex:1;min-width:0;border:1px solid var(--borda);background:rgba(255,255,255,.18);color:#fff;border-radius:50px;padding:13px 18px;font-size:16px;outline:none}
+.busca input::placeholder{color:var(--suave)}
+.busca input:focus{background:rgba(255,255,255,.26)}
+.ib{flex:none;width:48px;height:48px;border-radius:50%;border:1px solid var(--borda);background:var(--card);color:#fff;font-size:20px;cursor:pointer}
+.ib:active{transform:scale(.94)}
+.ib.ativo{background:#fff;color:#0b2a5b}
+.sugestoes{list-style:none;position:absolute;left:3%;right:3%;max-width:760px;margin:6px auto 0;background:#fff;color:#12203a;border-radius:18px;overflow:hidden;box-shadow:0 16px 40px rgba(0,0,0,.4)}
+.sugestoes li{padding:13px 16px;border-bottom:1px solid #e6edf8;cursor:pointer;font-size:15px}
+.sugestoes li:last-child{border:0}
+.sugestoes li small{display:block;color:#5a6b87;font-size:12.5px}
+.favs{display:flex;gap:8px;overflow-x:auto;padding:10px 0 2px;scrollbar-width:none}
+.favs::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--borda);background:var(--card);color:#fff;border-radius:50px;padding:6px 14px;font-size:13px;cursor:pointer;white-space:nowrap}
+
+.status{margin:14px 0;padding:12px 16px;border-radius:16px;background:var(--card);border:1px solid var(--borda);font-size:14px}
+.status.erro{background:rgba(229,36,59,.35)}
+
+/* Alertas */
+.sec-titulo{font-size:13px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--suave);margin:22px 0 10px}
+.alerta{display:flex;gap:12px;border-radius:18px;padding:14px 16px;margin-bottom:10px;color:#101828;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.alerta .ic{font-size:30px;line-height:1}
+.alerta b{display:block;font-size:16px}
+.alerta p{font-size:13.5px;margin-top:3px}
+.alerta small{display:block;margin-top:6px;font-size:11.5px;opacity:.75;font-weight:700}
+.alerta.n1{background:var(--a1)}
+.alerta.n2{background:var(--a2)}
+.alerta.n3{background:var(--a3);color:#fff}
+.alerta.n0{background:rgba(34,197,94,.9);color:#05260f}
+.oficiais a{display:inline-block;margin:4px 8px 0 0;font-size:13px;color:#fff;text-decoration:underline}
+
+/* Agora */
+.hero{text-align:center;padding:10px 0 4px}
+.hero .cidade{font-size:26px;font-weight:800;display:flex;justify-content:center;align-items:center;gap:8px}
+.star{background:none;border:0;font-size:24px;cursor:pointer;color:#fff}
+.hero .sub{color:var(--suave);font-size:14px}
+.hero .temp{font-size:92px;font-weight:200;line-height:1;margin:6px 0 0;letter-spacing:-3px}
+.hero .icone{font-size:64px;line-height:1.1}
+.hero .desc{font-size:19px;font-weight:600}
+.hero .mm{color:var(--suave);font-size:14.5px;margin-top:2px}
+
+.card{background:var(--card);border:1px solid var(--borda);border-radius:22px;padding:14px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.grade{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.m{background:var(--card);border:1px solid var(--borda);border-radius:18px;padding:12px 8px;text-align:center}
+.m span{display:block;font-size:11.5px;color:var(--suave);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.m b{display:block;font-size:19px;margin-top:3px}
+.m small{font-size:11.5px;color:var(--suave)}
+
+.horas{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.horas::-webkit-scrollbar{display:none}
+.h{flex:none;width:58px;text-align:center;font-size:13px}
+.h .e{font-size:24px;margin:4px 0}
+.h .p{color:#9fe0ff;font-size:11.5px;min-height:16px}
+
+.dia{display:grid;grid-template-columns:70px 32px 42px 1fr 66px;gap:8px;align-items:center;padding:11px 0;border-bottom:1px solid var(--borda);font-size:15px}
+.dia:last-child{border:0}
+.dia .n{font-weight:700;text-transform:capitalize}
+.dia .e{font-size:24px;text-align:center}
+.dia .p{color:#9fe0ff;font-size:12.5px;text-align:center}
+.dia .t{text-align:right;white-space:nowrap}
+.dia .mn{color:var(--suave)}
+.dia .mx{font-weight:700}
+.barra{position:relative;height:6px;border-radius:6px;background:rgba(255,255,255,.2)}
+.barra i{position:absolute;top:0;bottom:0;border-radius:6px;background:linear-gradient(90deg,#7dd3fc,#fde047,#fb923c)}
+.dia .x{grid-column:1/-1;font-size:12px;color:var(--suave);margin-top:-6px}
+
+footer{margin-top:26px;font-size:12px;color:var(--suave);text-align:center;padding:0 6px}
+footer a{color:#fff}
+.hide{display:none!important}
+@media(max-width:380px){.dia{grid-template-columns:62px 28px 38px 1fr 62px}.hero .temp{font-size:80px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="topo">
+  <div class="container">
+    <div class="busca">
+      <input id="q" type="search" placeholder="Buscar cidade (ex.: Miami, Tóquio, Marília)" autocomplete="off" enterkeyhint="search" aria-label="Buscar cidade">
+      <button class="ib" id="btnBuscar" aria-label="Buscar">🔍</button>
+      <button class="ib" id="btnGps" aria-label="Usar minha localização">📍</button>
+      <button class="ib hide" id="btnNotif" aria-label="Ativar notificações">🔔</button>
+    </div>
+    <ul class="sugestoes hide" id="sugestoes"></ul>
+    <div class="favs" id="favs"></div>
+  </div>
+</div>
+
+<main class="container">
+  <div class="status" id="status">Buscando sua localização…</div>
+
+  <div id="app" class="hide">
+    <section class="hero">
+      <div class="cidade"><span id="cidade">—</span><button class="star" id="btnFav" aria-label="Salvar cidade">☆</button></div>
+      <div class="sub" id="sub">—</div>
+      <div class="icone" id="icone">—</div>
+      <div class="temp" id="temp">—</div>
+      <div class="desc" id="desc">—</div>
+      <div class="mm" id="mm">—</div>
+    </section>
+
+    <div class="sec-titulo">Alertas</div>
+    <div id="alertas"></div>
+    <div class="oficiais" id="oficiais"></div>
+
+    <div class="sec-titulo">Condições agora</div>
+    <div class="grade" id="metricas"></div>
+
+    <div class="sec-titulo">Próximas 24 horas</div>
+    <div class="card"><div class="horas" id="horas"></div></div>
+
+    <div class="sec-titulo">Próximos 7 dias</div>
+    <div class="card" id="dias"></div>
+  </div>
+
+  <footer>
+    Dados meteorológicos: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo.com</a> (CC BY 4.0). Alertas nos EUA: National Weather Service.<br>
+    Os alertas desta página são calculados a partir da previsão e têm caráter informativo. Tornados e furacões não podem ser detectados com certeza por este método. Em situação de risco, siga sempre os avisos oficiais:
+    <a href="https://alertas2.inmet.gov.br/" target="_blank" rel="noopener">INMET</a> ·
+    Defesa Civil <b>199</b> ·
+    <a href="https://www.nhc.noaa.gov/" target="_blank" rel="noopener">NHC (furacões)</a> ·
+    <a href="https://www.weather.gov/" target="_blank" rel="noopener">NWS (EUA)</a>.
+  </footer>
+</main>
+
+<script>
+(function(){
+"use strict";
+
+var API="https://api.open-meteo.com/v1/forecast";
+var GEO="https://geocoding-api.open-meteo.com/v1/search";
+var REV="https://api.bigdatacloud.net/data/reverse-geocode-client";
+var PADRAO={nome:"São Paulo",pais:"Brasil",cc:"BR",lat:-23.5505,lon:-46.6333};
+var INTERVALO=5*60*1000;
+
+var E={lat:null,lon:null,nome:"",pais:"",cc:"",modo:"busca",dados:null,aviso:"",ultimo:0,avisados:{}};
+var $=function(id){return document.getElementById(id)};
+
+/* ---------- utilidades ---------- */
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+function num(x,d){return x==null||isNaN(x)?"—":Number(x).toFixed(d||0).replace(".",",")}
+function guardar(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+function ler(k,pad){try{var v=localStorage.getItem(k);return v?JSON.parse(v):pad}catch(e){return pad}}
+function status(msg,erro){var s=$("status");s.textContent=msg;s.className="status"+(erro?" erro":"");s.classList.toggle("hide",!msg)}
+function getJSON(url,ms){
+  var c=new AbortController(),t=setTimeout(function(){c.abort()},ms||15000);
+  return fetch(url,{signal:c.signal}).then(function(r){clearTimeout(t);if(!r.ok)throw new Error("HTTP "+r.status);return r.json()});
+}
+
+/* ---------- códigos do tempo (WMO) ---------- */
+var WMO={0:["Céu limpo","☀️"],1:["Predominantemente limpo","🌤️"],2:["Parcialmente nublado","⛅"],3:["Nublado","☁️"],
+45:["Neblina","🌫️"],48:["Nevoeiro com geada","🌫️"],51:["Garoa fraca","🌦️"],53:["Garoa","🌦️"],55:["Garoa forte","🌧️"],
+56:["Garoa congelante","🌧️"],57:["Garoa congelante forte","🌧️"],61:["Chuva fraca","🌧️"],63:["Chuva","🌧️"],65:["Chuva forte","🌧️"],
+66:["Chuva congelante","🌧️"],67:["Chuva congelante forte","🌧️"],71:["Neve fraca","🌨️"],73:["Neve","🌨️"],75:["Neve forte","❄️"],
+77:["Grãos de neve","🌨️"],80:["Pancadas de chuva fracas","🌦️"],81:["Pancadas de chuva","🌧️"],82:["Pancadas violentas","⛈️"],
+85:["Pancadas de neve","🌨️"],86:["Pancadas fortes de neve","❄️"],95:["Trovoada","⛈️"],96:["Trovoada com granizo","⛈️"],99:["Trovoada com granizo forte","⛈️"]};
+var SNOW=[71,73,75,77,85,86],TROV=[95,96,99],RAIN=[51,53,55,56,57,61,63,65,66,67,80,81,82];
+function w(c){return WMO[c]||["—","❓"]}
+function emoji(c,dia){return (dia===0&&(c===0||c===1))?"🌙":(dia===0&&c===2?"☁️":w(c)[1])}
+function dir(g){return ["N","NE","L","SE","S","SO","O","NO"][Math.round((g||0)/45)%8]}
+
+/* ---------- hora local da cidade ---------- */
+function horaLocal(off){
+  var d=new Date(Date.now()+off*1000);
+  return d.toLocaleString("pt-BR",{timeZone:"UTC",weekday:"short",hour:"2-digit",minute:"2-digit"});
+}
+function nomeDia(i,t){
+  if(i===0)return "Hoje"; if(i===1)return "Amanhã";
+  return new Date(t+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"short"}).replace(".","");
+}
+function diaLongo(i,t){
+  if(i===0)return "hoje"; if(i===1)return "amanhã";
+  return new Date(t+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"2-digit"});
+}
+
+/* ---------- alertas gerados pela previsão ---------- */
+function gerarAlertas(d){
+  var L=[],c=d.current,D=d.daily,best={};
+  function add(n,ic,t,x,f){L.push({n:n,ic:ic,t:t,x:x,f:f||"Calculado pela previsão (Open-Meteo)"})}
+  function cand(cat,n,i,v){if(!best[cat]||n>best[cat].n)best[cat]={n:n,i:i,v:v}}
+
+  /* agora */
+  if(SNOW.indexOf(c.weather_code)>-1||c.snowfall>0)add(1,"❄️","Nevando agora","Neve registrada neste momento. Dirija com cuidado e agasalhe-se bem.");
+  if(c.precipitation>=8)add(2,"🌧️","Chuva muito forte agora","Cerca de "+num(c.precipitation,1)+" mm na última hora. Risco de alagamentos; evite áreas baixas.");
+  else if(c.precipitation>=2.5)add(1,"🌧️","Chovendo agora","Cerca de "+num(c.precipitation,1)+" mm na última hora.");
+  if(TROV.indexOf(c.weather_code)>-1)add(2,"⛈️",c.weather_code>=96?"Tempestade com granizo agora":"Tempestade com raios agora","Fique em local fechado e longe de janelas, árvores e áreas abertas.");
+  var gv=c.wind_gusts_10m;
+  if(gv>=118)add(3,"🌀","Rajadas de intensidade de furacão agora","Rajadas de "+num(gv)+" km/h. Procure abrigo seguro e acompanhe as autoridades.");
+  else if(gv>=89)add(2,"💨","Vendaval agora","Rajadas de "+num(gv)+" km/h. Risco de queda de árvores e destelhamento.");
+  else if(gv>=62)add(1,"💨","Ventos fortes agora","Rajadas de "+num(gv)+" km/h.");
+
+  /* próximos 7 dias */
+  for(var i=0;i<D.time.length;i++){
+    var g=D.wind_gusts_10m_max[i],p=D.precipitation_sum[i],s=D.snowfall_sum[i],code=D.weather_code[i],tx=D.temperature_2m_max[i],tn=D.temperature_2m_min[i];
+    if(g>=118)cand("vento",3,i,g);else if(g>=89)cand("vento",2,i,g);else if(g>=62)cand("vento",1,i,g);
+    if(TROV.indexOf(code)>-1){if(g>=70)cand("torn",2,i,g);else cand("trov",code>=96?2:1,i,g)}
+    if(s>=20)cand("neve",3,i,s);else if(s>=5)cand("neve",2,i,s);else if(s>0.2||SNOW.indexOf(code)>-1)cand("neve",1,i,s);
+    if(p>=100)cand("chuva",3,i,p);else if(p>=50)cand("chuva",2,i,p);else if(p>=25)cand("chuva",1,i,p);
+    if(tx>=40)cand("calor",3,i,tx);else if(tx>=37)cand("calor",2,i,tx);
+    if(tn<=-15)cand("frio",3,i,tn);else if(tn<=-8)cand("frio",2,i,tn);
+  }
+  function q(cat){var b=best[cat];return b?{n:b.n,v:b.v,d:diaLongo(b.i,D.time[b.i])}:null}
+  var r;
+  if(r=q("vento")){
+    if(r.n===3)add(3,"🌀","Risco de ventos de intensidade de furacão","Rajadas de até "+num(r.v)+" km/h previstas para "+r.d+". Valores nessa faixa são comparáveis aos de um furacão; acompanhe o Centro Nacional de Furacões (NHC) e a Defesa Civil.");
+    else if(r.n===2)add(2,"💨","Vendaval previsto","Rajadas de até "+num(r.v)+" km/h previstas para "+r.d+". Risco de queda de árvores e destelhamento.");
+    else add(1,"💨","Ventos fortes previstos","Rajadas de até "+num(r.v)+" km/h previstas para "+r.d+".");
+  }
+  if(r=q("torn"))add(r.n,"🌪️","Tempestade severa: possível risco de tornado","Trovoadas com rajadas de até "+num(r.v)+" km/h previstas para "+r.d+". Este método não detecta tornados; acompanhe o serviço meteorológico oficial da sua região.");
+  if(r=q("trov"))add(r.n,"⛈️",r.n===2?"Trovoadas com granizo previstas":"Trovoadas previstas","Previstas para "+r.d+". Evite áreas abertas durante as tempestades.");
+  if(r=q("neve")){
+    if(r.n===3)add(3,"❄️","Nevasca prevista","Acúmulo de cerca de "+num(r.v,1)+" cm previsto para "+r.d+". Evite viagens.");
+    else if(r.n===2)add(2,"❄️","Neve forte prevista","Acúmulo de cerca de "+num(r.v,1)+" cm previsto para "+r.d+".");
+    else add(1,"🌨️","Neve prevista","Neve prevista para "+r.d+(r.v>0?" (cerca de "+num(r.v,1)+" cm)":"")+".");
+  }
+  if(r=q("chuva")){
+    if(r.n===3)add(3,"🌧️","Chuva extrema prevista","Cerca de "+num(r.v)+" mm previstos para "+r.d+". Alto risco de enchentes e deslizamentos.");
+    else if(r.n===2)add(2,"🌧️","Chuva muito forte prevista","Cerca de "+num(r.v)+" mm previstos para "+r.d+". Risco de alagamentos.");
+    else add(1,"🌧️","Chuva forte prevista","Cerca de "+num(r.v)+" mm previstos para "+r.d+".");
+  }
+  if(r=q("calor"))add(r.n,"🔥",r.n===3?"Calor extremo previsto":"Onda de calor prevista","Máxima de "+num(r.v)+" °C prevista para "+r.d+". Hidrate-se e evite o sol no meio do dia.");
+  if(r=q("frio"))add(r.n,"🥶",r.n===3?"Frio extremo previsto":"Frio intenso previsto","Mínima de "+num(r.v)+" °C prevista para "+r.d+". Proteja pessoas e animais.");
+
+  L.sort(function(a,b){return b.n-a.n});
+  return L;
+}
+
+/* ---------- alertas oficiais dos EUA (NWS) ---------- */
+function alertasOficiais(){
+  if(E.cc!=="US")return Promise.resolve([]);
+  return getJSON("https://api.weather.gov/alerts/active?point="+E.lat.toFixed(4)+","+E.lon.toFixed(4),10000).then(function(j){
+    return (j.features||[]).map(function(f){
+      var p=f.properties||{},ev=p.event||"Alerta",n=p.severity==="Extreme"?3:p.severity==="Severe"?2:1;
+      var ic=/tornado/i.test(ev)?"🌪️":/hurricane|tropical/i.test(ev)?"🌀":/snow|blizzard|winter|ice/i.test(ev)?"❄️":/flood|rain/i.test(ev)?"🌧️":/thunder/i.test(ev)?"⛈️":"⚠️";
+      return {n:n,ic:ic,t:ev,x:p.headline||p.description||"",f:"Alerta oficial: National Weather Service (EUA)"};
+    });
+  }).catch(function(){return []});
+}
+
+/* ---------- renderização ---------- */
+function tema(d){
+  var c=d.current,b=document.body,k="";
+  if(TROV.indexOf(c.weather_code)>-1)k="t-tempestade";
+  else if(SNOW.indexOf(c.weather_code)>-1)k="t-neve";
+  else if(RAIN.indexOf(c.weather_code)>-1)k="t-chuva";
+  else if(c.weather_code===3||c.weather_code===45||c.weather_code===48)k="t-nublado";
+  else if(!c.is_day)k="t-noite";
+  b.className=k;
+  var m=document.querySelector('meta[name="theme-color"]');
+  if(m)m.content=getComputedStyle(b).getPropertyValue("--bg1").trim()||"#0b2a5b";
+}
+
+function renderAlertas(lista){
+  var h="";
+  if(!lista.length)h='<div class="alerta n0"><div class="ic">✅</div><div><b>Sem alertas no momento</b><p>Nenhuma condição extrema prevista para os próximos 7 dias neste local.</p></div></div>';
+  lista.forEach(function(a){
+    h+='<div class="alerta n'+a.n+'"><div class="ic">'+a.ic+'</div><div><b>'+esc(a.t)+'</b><p>'+esc(a.x)+'</p><small>'+esc(a.f)+'</small></div></div>';
+  });
+  $("alertas").innerHTML=h;
+  $("oficiais").innerHTML='Avisos oficiais: <a href="https://alertas2.inmet.gov.br/" target="_blank" rel="noopener">INMET (Brasil)</a><a href="https://www.nhc.noaa.gov/" target="_blank" rel="noopener">Furacões (NHC)</a><a href="https://www.weather.gov/" target="_blank" rel="noopener">NWS (EUA)</a>';
+  notificar(lista);
+}
+
+function render(d){
+  var c=d.current,H=d.hourly,D=d.daily;
+  $("cidade").textContent=E.nome;
+  $("sub").textContent=(E.pais?E.pais+" · ":"")+"hora local "+horaLocal(d.utc_offset_seconds);
+  $("icone").textContent=emoji(c.weather_code,c.is_day);
+  $("temp").textContent=num(c.temperature_2m)+"°";
+  $("desc").textContent=w(c.weather_code)[0];
+  $("mm").textContent="Sensação "+num(c.apparent_temperature)+"° · Máx "+num(D.temperature_2m_max[0])+"° · Mín "+num(D.temperature_2m_min[0])+"°";
+
+  var M=[["Umidade",num(c.relative_humidity_2m)+"%",""],
+         ["Vento",num(c.wind_speed_10m),"km/h "+dir(c.wind_direction_10m)],
+         ["Rajadas",num(c.wind_gusts_10m),"km/h"],
+         ["Pressão",num(c.pressure_msl),"hPa"],
+         ["Nuvens",num(c.cloud_cover)+"%",""],
+         ["Chuva (1h)",num(c.precipitation,1),"mm"],
+         ["Índice UV",num(D.uv_index_max[0]),"máx. hoje"],
+         ["Nascer do sol",D.sunrise[0].slice(11,16),""],
+         ["Pôr do sol",D.sunset[0].slice(11,16),""]];
+  $("metricas").innerHTML=M.map(function(m){return '<div class="m"><span>'+m[0]+'</span><b>'+m[1]+'</b><small>'+m[2]+'</small></div>'}).join("");
+
+  var i0=H.time.indexOf(c.time.slice(0,13)+":00");if(i0<0)i0=0;
+  var hh="";
+  for(var i=i0;i<Math.min(i0+24,H.time.length);i++){
+    var hr=H.time[i].slice(11,13),noite=(+hr<6||+hr>=19)?0:1;
+    var pr=H.precipitation_probability[i];
+    hh+='<div class="h"><div>'+(i===i0?"Agora":hr+"h")+'</div><div class="e">'+emoji(H.weather_code[i],noite)+'</div><div><b>'+num(H.temperature_2m[i])+'°</b></div><div class="p">'+(pr>=20?pr+"%":"")+'</div></div>';
+  }
+  $("horas").innerHTML=hh;
+
+  var gmin=Math.min.apply(null,D.temperature_2m_min),gmax=Math.max.apply(null,D.temperature_2m_max),amp=(gmax-gmin)||1,dd="";
+  for(var j=0;j<D.time.length;j++){
+    var l=(D.temperature_2m_min[j]-gmin)/amp*100,wd=(D.temperature_2m_max[j]-D.temperature_2m_min[j])/amp*100;
+    var ex=[];
+    if(D.precipitation_sum[j]>0.1)ex.push("Chuva "+num(D.precipitation_sum[j],1)+" mm");
+    if(D.snowfall_sum[j]>0.1)ex.push("Neve "+num(D.snowfall_sum[j],1)+" cm");
+    ex.push("Rajadas até "+num(D.wind_gusts_10m_max[j])+" km/h");
+    dd+='<div class="dia"><div class="n">'+nomeDia(j,D.time[j])+'</div><div class="e">'+w(D.weather_code[j])[1]+'</div><div class="p">'+(D.precipitation_probability_max[j]>=20?D.precipitation_probability_max[j]+"%":"")+'</div>'+
+        '<div class="barra"><i style="left:'+l.toFixed(1)+'%;width:'+Math.max(wd,6).toFixed(1)+'%"></i></div>'+
+        '<div class="t"><span class="mn">'+num(D.temperature_2m_min[j])+'°</span> <span class="mx">'+num(D.temperature_2m_max[j])+'°</span></div>'+
+        '<div class="x">'+ex.join(" · ")+'</div></div>';
+  }
+  $("dias").innerHTML=dd;
+
+  tema(d);
+  atualizarEstrela();
+  $("app").classList.remove("hide");
+}
+
+/* ---------- carregar dados ---------- */
+function carregar(){
+  status("Atualizando…");
+  var url=API+"?latitude="+E.lat+"&longitude="+E.lon+
+    "&current=temperature_2m,apparent_temperature,relative_humidity_2m,is_day,precipitation,snowfall,weather_code,cloud_cover,pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m"+
+    "&hourly=temperature_2m,precipitation_probability,weather_code"+
+    "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,snowfall_sum,wind_gusts_10m_max,sunrise,sunset,uv_index_max"+
+    "&timezone=auto&forecast_days=7&wind_speed_unit=kmh";
+  return Promise.all([getJSON(url),alertasOficiais()]).then(function(r){
+    E.dados=r[0];E.ultimo=Date.now();
+    render(r[0]);
+    renderAlertas(r[1].concat(gerarAlertas(r[0])).sort(function(a,b){return b.n-a.n}));
+    status(E.aviso||"");
+    if(E.aviso){E.aviso="";setTimeout(function(){status("")},8000)}
+  }).catch(function(){
+    status("Não foi possível obter o clima. Verifique sua conexão e tente novamente.",true);
+  });
+}
+
+/* ---------- localização ---------- */
+function nomeDoLocal(lat,lon){
+  return getJSON(REV+"?latitude="+lat+"&longitude="+lon+"&localityLanguage=pt",8000).then(function(j){
+    return {nome:j.city||j.locality||j.principalSubdivision||"Sua localização",pais:j.countryName||"",cc:j.countryCode||""};
+  }).catch(function(){return {nome:"Sua localização",pais:"",cc:""}});
+}
+function usarGps(silencioso){
+  if(!navigator.geolocation){fallback("Seu navegador não suporta localização. Busque uma cidade.");return}
+  status("Buscando sua localização…");
+  navigator.geolocation.getCurrentPosition(function(p){
+    var lat=p.coords.latitude,lon=p.coords.longitude;
+    var moveu=E.lat==null||Math.abs(lat-E.lat)+Math.abs(lon-E.lon)>0.05;
+    E.modo="gps";E.lat=lat;E.lon=lon;
+    $("btnGps").classList.add("ativo");
+    (moveu||!E.nome?nomeDoLocal(lat,lon).then(function(n){E.nome=n.nome;E.pais=n.pais;E.cc=n.cc}):Promise.resolve()).then(carregar);
+  },function(){
+    if(silencioso&&E.dados){carregar();return}
+    fallback("Não foi possível usar sua localização. Permita o acesso no navegador ou busque uma cidade.");
+  },{enableHighAccuracy:false,timeout:12000,maximumAge:300000});
+}
+function fallback(msg){
+  var u=ler("clima_ultimo",null)||PADRAO;
+  E.aviso=msg;
+  definir(u,"busca");
+}
+function definir(l,modo){
+  E.modo=modo||"busca";E.lat=l.lat;E.lon=l.lon;E.nome=l.nome;E.pais=l.pais||"";E.cc=l.cc||"";
+  $("btnGps").classList.toggle("ativo",E.modo==="gps");
+  if(E.modo==="busca")guardar("clima_ultimo",{nome:E.nome,pais:E.pais,cc:E.cc,lat:E.lat,lon:E.lon});
+  carregar();
+}
+
+/* ---------- busca de cidades ---------- */
+var tBusca;
+function buscar(q){
+  return getJSON(GEO+"?name="+encodeURIComponent(q)+"&count=7&language=pt&format=json",10000).then(function(j){return j.results||[]}).catch(function(){return []});
+}
+function mostrarSugestoes(r){
+  var ul=$("sugestoes");
+  if(!r.length){ul.innerHTML='<li>Nenhuma cidade encontrada</li>';ul.classList.remove("hide");return}
+  ul.innerHTML=r.map(function(x,i){return '<li data-i="'+i+'">'+esc(x.name)+'<small>'+esc([x.admin1,x.country].filter(Boolean).join(", "))+'</small></li>'}).join("");
+  ul.classList.remove("hide");
+  ul._r=r;
+}
+function escolher(x){
+  $("sugestoes").classList.add("hide");$("q").value="";$("q").blur();
+  definir({nome:x.name,pais:[x.admin1,x.country].filter(Boolean).join(", "),cc:x.country_code||"",lat:x.latitude,lon:x.longitude},"busca");
+}
+$("q").addEventListener("input",function(){
+  clearTimeout(tBusca);var v=this.value.trim();
+  if(v.length<2){$("sugestoes").classList.add("hide");return}
+  tBusca=setTimeout(function(){buscar(v).then(mostrarSugestoes)},300);
+});
+$("q").addEventListener("keydown",function(e){if(e.key==="Enter")$("btnBuscar").click()});
+$("btnBuscar").addEventListener("click",function(){
+  var v=$("q").value.trim();if(v.length<2)return;
+  buscar(v).then(function(r){r.length?escolher(r[0]):mostrarSugestoes(r)});
+});
+$("sugestoes").addEventListener("click",function(e){
+  var li=e.target.closest("li");if(!li||li.dataset.i==null)return;
+  escolher($("sugestoes")._r[+li.dataset.i]);
+});
+document.addEventListener("click",function(e){if(!e.target.closest(".topo"))$("sugestoes").classList.add("hide")});
+$("btnGps").addEventListener("click",function(){usarGps(false)});
+
+/* ---------- favoritos ---------- */
+function favs(){return ler("clima_favs",[])}
+function chave(l){return (+l.lat).toFixed(2)+","+(+l.lon).toFixed(2)}
+function atualizarEstrela(){
+  var salvo=favs().some(function(f){return chave(f)===chave(E)});
+  $("btnFav").textContent=salvo?"★":"☆";
+}
+function renderFavs(){
+  var f=favs();
+  $("favs").innerHTML=f.map(function(x,i){return '<button class="chip" data-i="'+i+'">⭐ '+esc(x.nome)+'</button>'}).join("");
+}
+$("btnFav").addEventListener("click",function(){
+  var f=favs(),k=chave(E),idx=-1;
+  f.forEach(function(x,i){if(chave(x)===k)idx=i});
+  if(idx>-1)f.splice(idx,1);else f.unshift({nome:E.nome,pais:E.pais,cc:E.cc,lat:E.lat,lon:E.lon});
+  guardar("clima_favs",f.slice(0,8));renderFavs();atualizarEstrela();
+});
+$("favs").addEventListener("click",function(e){
+  var b=e.target.closest(".chip");if(!b)return;
+  definir(favs()[+b.dataset.i],"busca");
+});
+
+/* ---------- notificações (quando o navegador permitir) ---------- */
+function notificar(lista){
+  if(!("Notification" in window)||Notification.permission!=="granted")return;
+  lista.forEach(function(a){
+    if(a.n<2)return;
+    var k=E.nome+"|"+a.t;if(E.avisados[k])return;E.avisados[k]=1;
+    try{new Notification(a.ic+" "+a.t+" — "+E.nome,{body:a.x})}catch(e){}
+  });
+}
+if("Notification" in window){
+  $("btnNotif").classList.remove("hide");
+  $("btnNotif").addEventListener("click",function(){
+    Notification.requestPermission().then(function(p){
+      status(p==="granted"?"Notificações ativadas enquanto esta página estiver aberta.":"Notificações não permitidas pelo navegador.");
+      setTimeout(function(){status("")},4000);
+    });
+  });
+}
+
+/* ---------- tempo real ---------- */
+function atualizar(){E.modo==="gps"?usarGps(true):(E.lat!=null&&carregar())}
+setInterval(atualizar,INTERVALO);
+setInterval(function(){if(E.dados)$("sub").textContent=(E.pais?E.pais+" · ":"")+"hora local "+horaLocal(E.dados.utc_offset_seconds)},30000);
+document.addEventListener("visibilitychange",function(){if(!document.hidden&&Date.now()-E.ultimo>2*60*1000)atualizar()});
+
+/* ---------- início ---------- */
+renderFavs();
+usarGps(false);
+})();
+</script>
+</body>
+</html>
