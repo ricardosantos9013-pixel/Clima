@@ -1,0 +1,810 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#071b35">
+<title>Clima Alerta</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:Arial,sans-serif;
+  background:#071b35;
+  color:#fff;
+  padding-bottom:35px
+}
+header{
+  background:linear-gradient(135deg,#0755a5,#06213f);
+  padding:20px 15px;
+  text-align:center;
+  border-bottom:2px solid #168cff
+}
+.logo{font-size:35px}
+header h1{font-size:25px;margin:7px 0}
+header p{font-size:13px;color:#c8e5ff}
+nav{
+  display:flex;overflow-x:auto;gap:8px;
+  padding:12px;background:#0b294b;
+  position:sticky;top:0;z-index:1000
+}
+nav button{
+  background:#153b63;color:white;border:0;
+  padding:11px 15px;border-radius:9px;
+  white-space:nowrap;font-weight:bold
+}
+nav button.active{background:#0878e8}
+main{max-width:1100px;margin:auto;padding:15px}
+section{display:none}
+section.active{display:block}
+.card{
+  background:#102e50;border:1px solid #21496f;
+  border-radius:13px;padding:16px;margin-bottom:14px
+}
+h2{font-size:21px;margin-bottom:14px;color:#8ecaff}
+h3{font-size:16px;margin-bottom:9px;color:#b8ddff}
+p{line-height:1.5}
+input,select,textarea{
+  width:100%;padding:13px;margin:7px 0;
+  border-radius:8px;border:1px solid #37618a;
+  background:#071b35;color:white;font-size:15px
+}
+button.action{
+  background:#0878e8;color:white;border:0;
+  padding:12px 15px;border-radius:8px;
+  font-weight:bold;margin:5px 3px 5px 0
+}
+button.secondary{background:#285276}
+button.danger{background:#a83232}
+.small{font-size:12px;color:#a9c8e5}
+.result{
+  background:#0a2340;padding:12px;
+  border-radius:9px;margin-top:10px;
+  line-height:1.6
+}
+.grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));
+  gap:10px
+}
+.metric{
+  background:#0a2340;padding:14px;
+  border-radius:10px;text-align:center
+}
+.metric strong{display:block;font-size:23px;color:#78c3ff;margin:8px}
+#map,#routeMap{height:340px;border-radius:12px;margin-top:12px}
+.feed-item{
+  background:#0a2340;padding:13px;
+  border-radius:10px;margin:10px 0;
+  border-left:3px solid #168cff
+}
+footer{text-align:center;color:#83a9ca;font-size:12px;padding:20px}
+a{color:#80c5ff}
+.hidden{display:none}
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="logo">🌧️</div>
+  <h1>CLIMA ALERTA</h1>
+  <p>Informação, prevenção e monitoramento em todo o Brasil</p>
+</header>
+
+<nav>
+  <button class="active" onclick="showTab('inicio',this)">Início</button>
+  <button onclick="showTab('gps',this)">GPS e Rotas</button>
+  <button onclick="showTab('clima',this)">Clima</button>
+  <button onclick="showTab('rodovias',this)">Rodovias</button>
+  <button onclick="showTab('transporte',this)">Transporte</button>
+  <button onclick="showTab('telefonia',this)">Telefonia</button>
+  <button onclick="showTab('energia',this)">Energia</button>
+  <button onclick="showTab('comunidade',this)">Comunidade</button>
+</nav>
+
+<main>
+
+<!-- INÍCIO -->
+<section id="inicio" class="active">
+  <div class="card">
+    <h2>Bem-vindo ao Clima Alerta</h2>
+    <p>
+      Acompanhe informações meteorológicas, localização,
+      rotas, rodovias, transporte público, telefonia e energia.
+    </p>
+    <br>
+    <button class="action" onclick="startGPS()">📍 Ativar minha localização</button>
+    <div id="homeLocation" class="result">
+      Aguardando localização.
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="metric">🌦️<strong>Clima</strong><span class="small">Previsão e chuva</span></div>
+    <div class="metric">🗺️<strong>Rotas</strong><span class="small">Planejamento de viagens</span></div>
+    <div class="metric">🚧<strong>Rodovias</strong><span class="small">Informações viárias</span></div>
+    <div class="metric">📡<strong>Telefonia</strong><span class="small">Redes móveis</span></div>
+    <div class="metric">⚡<strong>Energia</strong><span class="small">Serviços elétricos</span></div>
+    <div class="metric">👥<strong>Comunidade</strong><span class="small">Relatos dos usuários</span></div>
+  </div>
+
+  <div class="card">
+    <h3>Consultar qualquer cidade do Brasil</h3>
+    <input id="homeCity" placeholder="Ex.: Marília, São Paulo">
+    <button class="action" onclick="searchCity('homeCity')">Consultar cidade</button>
+  </div>
+</section>
+
+<!-- GPS E ROTAS -->
+<section id="gps">
+  <div class="card">
+    <h2>📍 GPS e localização</h2>
+    <p>Use o GPS do aparelho para identificar sua posição atual.</p>
+    <button class="action" onclick="startGPS()">Ativar GPS</button>
+    <div id="gpsResult" class="result">Localização não ativada.</div>
+    <div id="map"></div>
+  </div>
+
+  <div class="card">
+    <h2>🗺️ Planejar rota</h2>
+    <input id="origin" placeholder="Cidade de origem">
+    <input id="destination" placeholder="Cidade de destino">
+    <button class="action" onclick="calculateRoute()">Calcular rota</button>
+    <div id="routeResult" class="result">Informe a origem e o destino.</div>
+    <div id="routeMap"></div>
+    <p class="small">
+      A rota utiliza dados do OpenStreetMap e do serviço público OSRM.
+      O tempo calculado não representa trânsito em tempo real.
+      Não há navegação por voz nesta versão.
+    </p>
+  </div>
+</section>
+
+<!-- CLIMA -->
+<section id="clima">
+  <div class="card">
+    <h2>🌦️ Previsão do tempo</h2>
+    <input id="weatherCity" placeholder="Digite uma cidade brasileira">
+    <button class="action" onclick="searchCity('weatherCity')">Buscar previsão</button>
+    <div id="weatherResult" class="result">Pesquise uma cidade para consultar o clima.</div>
+  </div>
+
+  <div class="card">
+    <h3>Radar de chuva</h3>
+    <p>Visualização de radar meteorológico disponibilizada pelo RainViewer.</p>
+    <div id="rainMap" style="height:330px;border-radius:10px"></div>
+    <p class="small">A disponibilidade e atualização das imagens dependem do provedor.</p>
+  </div>
+</section>
+
+<!-- RODOVIAS -->
+<section id="rodovias">
+  <div class="card">
+    <h2>🚧 Rodovias brasileiras</h2>
+    <p>
+      Consulte informações sobre rodovias federais e estaduais,
+      acidentes, obras, interdições e condições de tráfego.
+    </p>
+    <input id="roadSearch" placeholder="Digite a rodovia. Ex.: BR-153, SP-294">
+    <button class="action" onclick="roadInfo()">Consultar rodovia</button>
+    <div id="roadResult" class="result">
+      Pesquise uma rodovia ou consulte os canais oficiais.
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Fontes oficiais</h3>
+    <p>Polícia Rodoviária Federal:</p>
+    <a href="https://www.gov.br/prf/pt-br" target="_blank">Acessar PRF</a>
+    <br><br>
+    <p>Departamento de Estradas de Rodagem de São Paulo:</p>
+    <a href="https://www.der.sp.gov.br/" target="_blank">Acessar DER-SP</a>
+    <br><br>
+    <p>DNIT:</p>
+    <a href="https://www.gov.br/dnit/pt-br" target="_blank">Acessar DNIT</a>
+  </div>
+
+  <div class="card">
+    <h3>Registrar ocorrência na rodovia</h3>
+    <select id="roadType">
+      <option>Acidente</option>
+      <option>Congestionamento</option>
+      <option>Obra</option>
+      <option>Interdição</option>
+      <option>Buraco na pista</option>
+      <option>Alagamento</option>
+      <option>Outro</option>
+    </select>
+    <input id="roadPlace" placeholder="Rodovia e localização">
+    <textarea id="roadDescription" placeholder="Descreva a situação"></textarea>
+    <button class="action" onclick="publishRoad()">Registrar relato</button>
+  </div>
+</section>
+
+<!-- TRANSPORTE -->
+<section id="transporte">
+  <div class="card">
+    <h2>🚌 Transporte público</h2>
+    <p>
+      Área destinada a informações de ônibus, metrô, trens,
+      CPTM e outros sistemas de transporte.
+    </p>
+    <input id="transportCity" placeholder="Cidade ou município">
+    <select id="transportType">
+      <option>Ônibus</option>
+      <option>Metrô</option>
+      <option>Trem</option>
+      <option>VLT</option>
+      <option>Todos</option>
+    </select>
+    <button class="action" onclick="transportInfo()">Consultar</button>
+    <div id="transportResult" class="result">
+      Informe uma cidade para consultar os canais disponíveis.
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>São Paulo – canais oficiais</h3>
+    <p>Ônibus – SPTrans:</p>
+    <a href="https://www.sptrans.com.br/" target="_blank">SPTrans</a>
+    <br><br>
+    <p>Metrô:</p>
+    <a href="https://www.metro.sp.gov.br/" target="_blank">Metrô de São Paulo</a>
+    <br><br>
+    <p>Trens metropolitanos:</p>
+    <a href="https://www.cptm.sp.gov.br/" target="_blank">CPTM</a>
+  </div>
+  <p class="small">
+    A localização de veículos, horários e atrasos depende da integração
+    com a API de cada prefeitura ou operador. Não é fornecida em tempo
+    real por esta versão.
+  </p>
+</section>
+
+<!-- TELEFONIA -->
+<section id="telefonia">
+  <div class="card">
+    <h2>📡 Rede móvel e cobertura</h2>
+    <p>Consulte informações sobre as operadoras brasileiras.</p>
+    <select id="operator">
+      <option>Claro</option>
+      <option>Vivo</option>
+      <option>TIM</option>
+    </select>
+    <select id="technology">
+      <option>2G</option>
+      <option>3G</option>
+      <option>4G</option>
+      <option>5G</option>
+    </select>
+    <input id="telecomCity" placeholder="Cidade ou município">
+    <button class="action" onclick="telecomInfo()">Consultar rede</button>
+    <div id="telecomResult" class="result">
+      Selecione uma operadora e informe a cidade.
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Consulta de antenas e estações</h3>
+    <p>
+      A Anatel disponibiliza informações sobre estações de
+      telecomunicações cadastradas.
+    </p>
+    <a href="https://www.gov.br/anatel/pt-br" target="_blank">
+      Consultar Anatel
+    </a>
+    <p class="small">
+      O cadastro de uma antena não confirma que ela esteja ativa
+      ou funcionando naquele momento. O status operacional exige
+      dados confiáveis da operadora.
+    </p>
+  </div>
+</section>
+
+<!-- ENERGIA -->
+<section id="energia">
+  <div class="card">
+    <h2>⚡ Energia elétrica</h2>
+    <p>
+      Consulte informações sobre concessionárias, interrupções
+      programadas e falta de energia.
+    </p>
+    <input id="energyCity" placeholder="Cidade ou município">
+    <button class="action" onclick="energyInfo()">Consultar concessionária</button>
+    <div id="energyResult" class="result">
+      Informe sua cidade para começar.
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Registrar falta de energia</h3>
+    <input id="energyPlace" placeholder="Bairro e cidade">
+    <select id="energyType">
+      <option>Falta de energia</option>
+      <option>Oscilação de energia</option>
+      <option>Queda de poste</option>
+      <option>Fiação rompida</option>
+      <option>Manutenção programada</option>
+    </select>
+    <textarea id="energyDescription" placeholder="Descreva a ocorrência"></textarea>
+    <button class="action" onclick="publishEnergy()">Registrar relato</button>
+  </div>
+
+  <div class="card">
+    <h3>Distribuidoras</h3>
+    <a href="https://www.cpfl.com.br/" target="_blank">CPFL</a><br><br>
+    <a href="https://www.neoenergia.com/" target="_blank">Neoenergia</a><br><br>
+    <a href="https://www.enel.com.br/" target="_blank">Enel</a><br><br>
+    <a href="https://www.cemig.com.br/" target="_blank">Cemig</a><br><br>
+    <a href="https://www.copel.com/" target="_blank">Copel</a>
+  </div>
+</section>
+
+<!-- COMUNIDADE -->
+<section id="comunidade">
+  <div class="card">
+    <h2>👥 Comunidade Clima Alerta</h2>
+    <p>
+      Compartilhe informações sobre chuva, trânsito, rodovias,
+      transporte público, telefonia e energia.
+    </p>
+  </div>
+
+  <div class="card">
+    <h3>Publicar ocorrência</h3>
+    <input id="userName" placeholder="Seu nome ou apelido">
+    <input id="postCity" placeholder="Cidade e estado">
+    <select id="postCategory">
+      <option>Chuva e alagamento</option>
+      <option>Acidente e trânsito</option>
+      <option>Rodovias</option>
+      <option>Transporte público</option>
+      <option>Sinal de celular</option>
+      <option>Falta de energia</option>
+      <option>Outro</option>
+    </select>
+    <textarea id="postText" rows="4" placeholder="Conte o que está acontecendo..."></textarea>
+    <button class="action" onclick="publishPost()">Publicar relato</button>
+  </div>
+
+  <div class="card">
+    <h3>Relatos da comunidade</h3>
+    <div id="communityFeed"></div>
+  </div>
+  <p class="small">
+    Nesta versão, os relatos são armazenados somente no aparelho
+    utilizado. Para compartilhar entre usuários de todo o Brasil,
+    será necessário conectar um servidor e banco de dados.
+    Os relatos são informações de usuários, não alertas oficiais.
+  </p>
+</section>
+
+</main>
+
+<footer>
+  CLIMA ALERTA — Monitoramento e informação para todo o Brasil.
+  <br>Consulte sempre os órgãos oficiais em situações de emergência.
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+let currentPosition = null;
+let mainMap = null;
+let routeMap = null;
+let rainMap = null;
+let gpsMarker = null;
+let routeLayer = null;
+let rainLayer = null;
+
+function showTab(id,button){
+  document.querySelectorAll("main section").forEach(s=>s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+  button.classList.add("active");
+
+  setTimeout(()=>{
+    if(mainMap) mainMap.invalidateSize();
+    if(routeMap) routeMap.invalidateSize();
+    if(rainMap) rainMap.invalidateSize();
+  },200);
+}
+
+function initializeMaps(){
+  if(!window.L) return;
+
+  const base = {
+    attribution:'&copy; OpenStreetMap contributors',
+    maxZoom:19
+  };
+
+  mainMap=L.map("map").setView([-14.2,-51.9],4);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",base).addTo(mainMap);
+
+  routeMap=L.map("routeMap").setView([-14.2,-51.9],4);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",base).addTo(routeMap);
+
+  rainMap=L.map("rainMap").setView([-14.2,-51.9],4);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",base).addTo(rainMap);
+
+  loadRainRadar();
+}
+
+async function loadRainRadar(){
+  try{
+    const response=await fetch("https://api.rainviewer.com/public/weather-maps.json");
+    const data=await response.json();
+    const frames=data.radar?.past || [];
+    if(!frames.length) return;
+
+    const latest=frames[frames.length-1];
+    const url=data.host+latest.path+"/256/{z}/{x}/{y}/2/1_1.png";
+
+    rainLayer=L.tileLayer(url,{
+      opacity:0.65,
+      attribution:"Radar RainViewer"
+    }).addTo(rainMap);
+  }catch(e){
+    console.log("Radar indisponível",e);
+  }
+}
+
+function startGPS(){
+  if(!navigator.geolocation){
+    alert("Seu navegador não suporta GPS.");
+    return;
+  }
+
+  navigator.geolocation.watchPosition(async position=>{
+    const lat=position.coords.latitude;
+    const lon=position.coords.longitude;
+    currentPosition={lat,lon};
+
+    document.getElementById("gpsResult").innerHTML=
+      "Latitude: "+lat.toFixed(5)+"<br>Longitude: "+lon.toFixed(5);
+
+    document.getElementById("homeLocation").innerHTML=
+      "📍 Localização identificada.<br>"+
+      lat.toFixed(5)+", "+lon.toFixed(5);
+
+    if(mainMap){
+      mainMap.setView([lat,lon],15);
+      if(gpsMarker) mainMap.removeLayer(gpsMarker);
+      gpsMarker=L.marker([lat,lon]).addTo(mainMap)
+        .bindPopup("Sua localização").openPopup();
+    }
+
+    if(rainMap) rainMap.setView([lat,lon],8);
+    await loadWeatherByCoordinates(lat,lon);
+
+  },error=>{
+    alert("Não foi possível obter sua localização. Verifique a permissão de GPS.");
+  },{
+    enableHighAccuracy:true,
+    maximumAge:10000,
+    timeout:20000
+  });
+}
+
+async function geocode(city){
+  const url="https://geocoding-api.open-meteo.com/v1/search?name="+
+    encodeURIComponent(city)+"&count=1&language=pt&format=json";
+
+  const response=await fetch(url);
+  const data=await response.json();
+
+  if(!data.results || !data.results.length){
+    throw new Error("Cidade não encontrada.");
+  }
+  return data.results[0];
+}
+
+async function searchCity(inputId){
+  const city=document.getElementById(inputId).value.trim();
+  if(!city){
+    alert("Digite o nome de uma cidade.");
+    return;
+  }
+
+  try{
+    const place=await geocode(city);
+    await loadWeatherByCoordinates(place.latitude,place.longitude,place);
+  }catch(error){
+    alert(error.message || "Erro ao consultar cidade.");
+  }
+}
+
+async function loadWeatherByCoordinates(lat,lon,place=null){
+  const result=document.getElementById("weatherResult");
+  result.innerHTML="Consultando previsão...";
+
+  try{
+    const url="https://api.open-meteo.com/v1/forecast?latitude="+lat+
+      "&longitude="+lon+
+      "&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,weather_code,wind_speed_10m"+
+      "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"+
+      "&forecast_days=7&timezone=auto";
+
+    const response=await fetch(url);
+    const data=await response.json();
+
+    const current=data.current;
+    const daily=data.daily;
+
+    let html="<h3>"+(place ? place.name+", "+(place.admin1||"Brasil") : "Sua localização")+"</h3>";
+
+    html+="<div class='grid'>";
+    html+="<div class='metric'>🌡️<strong>"+current.temperature_2m+"°C</strong><span class='small'>Temperatura</span></div>";
+    html+="<div class='metric'>💧<strong>"+current.relative_humidity_2m+"%</strong><span class='small'>Umidade</span></div>";
+    html+="<div class='metric'>🌧️<strong>"+current.precipitation+" mm</strong><span class='small'>Precipitação</span></div>";
+    html+="<div class='metric'>💨<strong>"+current.wind_speed_10m+" km/h</strong><span class='small'>Vento</span></div>";
+    html+="</div>";
+
+    html+="<br><h3>Previsão para 7 dias</h3>";
+
+    for(let i=0;i<daily.time.length;i++){
+      html+="<div class='result'>";
+      html+="📅 "+formatDate(daily.time[i]);
+      html+="<br>Máxima: "+daily.temperature_2m_max[i]+"°C";
+      html+=" | Mínima: "+daily.temperature_2m_min[i]+"°C";
+      html+="<br>Probabilidade de chuva: "+daily.precipitation_probability_max[i]+"%";
+      html+="</div>";
+    }
+
+    html+="<p class='small'>Atualizado conforme consulta. Fonte: Open-Meteo.</p>";
+    result.innerHTML=html;
+
+  }catch(error){
+    result.innerHTML="Não foi possível carregar a previsão.";
+  }
+}
+
+function formatDate(date){
+  return new Date(date+"T12:00:00").toLocaleDateString("pt-BR");
+}
+
+async function calculateRoute(){
+  const origin=document.getElementById("origin").value.trim();
+  const destination=document.getElementById("destination").value.trim();
+
+  if(!origin || !destination){
+    alert("Informe origem e destino.");
+    return;
+  }
+
+  const output=document.getElementById("routeResult");
+  output.innerHTML="Localizando cidades...";
+
+  try{
+    const a=await geocode(origin);
+    const b=await geocode(destination);
+
+    const url="https://router.project-osrm.org/route/v1/driving/"+
+      a.longitude+","+a.latitude+";"+
+      b.longitude+","+b.latitude+
+      "?overview=full&geometries=geojson";
+
+    const response=await fetch(url);
+    const data=await response.json();
+
+    if(data.code!=="Ok") throw new Error("Rota indisponível.");
+
+    const route=data.routes[0];
+    const km=(route.distance/1000).toFixed(1);
+    const minutes=Math.round(route.duration/60);
+
+    output.innerHTML=
+      "<h3>Rota calculada</h3>"+
+      "Origem: "+a.name+"<br>"+
+      "Destino: "+b.name+"<br>"+
+      "Distância: "+km+" km<br>"+
+      "Tempo estimado: "+minutes+" minutos"+
+      "<p class='small'>Estimativa de rota, sem trânsito em tempo real.</p>";
+
+    if(routeLayer) routeMap.removeLayer(routeLayer);
+
+    routeLayer=L.geoJSON(route.geometry,{
+      style:{color:"#1595ff",weight:5}
+    }).addTo(routeMap);
+
+    routeMap.fitBounds(routeLayer.getBounds());
+
+  }catch(error){
+    output.innerHTML="Não foi possível calcular essa rota. Verifique os nomes das cidades.";
+  }
+}
+
+function roadInfo(){
+  const road=document.getElementById("roadSearch").value.trim();
+  if(!road){
+    alert("Digite uma rodovia.");
+    return;
+  }
+
+  document.getElementById("roadResult").innerHTML=
+    "<h3>"+escapeHTML(road)+"</h3>"+
+    "Consulte as condições atuais nos canais oficiais:<br>"+
+    "<a href='https://www.gov.br/prf/pt-br' target='_blank'>Polícia Rodoviária Federal</a><br>"+
+    "<a href='https://www.gov.br/dnit/pt-br' target='_blank'>DNIT</a><br>"+
+    "<p class='small'>Ainda não há consulta automática de ocorrências em tempo real.</p>";
+}
+
+function transportInfo(){
+  const city=document.getElementById("transportCity").value.trim();
+  const type=document.getElementById("transportType").value;
+
+  if(!city){
+    alert("Informe a cidade.");
+    return;
+  }
+
+  document.getElementById("transportResult").innerHTML=
+    "<h3>"+escapeHTML(city)+"</h3>"+
+    "Modalidade: "+escapeHTML(type)+"<br>"+
+    "A integração com horários, veículos e interrupções depende da API do operador local.<br>"+
+    "<a href='https://www.google.com/search?q=transporte+publico+"+
+    encodeURIComponent(city)+"' target='_blank'>Pesquisar informações de transporte</a>";
+}
+
+function telecomInfo(){
+  const operator=document.getElementById("operator").value;
+  const technology=document.getElementById("technology").value;
+  const city=document.getElementById("telecomCity").value.trim();
+
+  if(!city){
+    alert("Informe a cidade.");
+    return;
+  }
+
+  document.getElementById("telecomResult").innerHTML=
+    "<h3>"+escapeHTML(operator)+" — "+escapeHTML(technology)+"</h3>"+
+    "Localidade: "+escapeHTML(city)+"<br>"+
+    "Para verificar cobertura, consulte os mapas e canais oficiais da operadora.<br>"+
+    "<a href='https://www.gov.br/anatel/pt-br' target='_blank'>Consultar dados da Anatel</a>"+
+    "<p class='small'>A presença de cobertura ou antena cadastrada não comprova sinal disponível em tempo real.</p>";
+}
+
+function energyInfo(){
+  const city=document.getElementById("energyCity").value.trim();
+  if(!city){
+    alert("Informe a cidade.");
+    return;
+  }
+
+  document.getElementById("energyResult").innerHTML=
+    "<h3>"+escapeHTML(city)+"</h3>"+
+    "A concessionária e os dados de interrupção precisam ser confirmados para esta localidade.<br>"+
+    "<a href='https://www.google.com/search?q=distribuidora+energia+"+
+    encodeURIComponent(city)+"' target='_blank'>Identificar distribuidora local</a><br><br>"+
+    "<a href='https://www.gov.br/aneel/pt-br' target='_blank'>Consultar ANEEL</a>"+
+    "<p class='small'>Não há consulta automática de interrupções nesta versão.</p>";
+}
+
+function getStorage(key){
+  try{
+    return JSON.parse(localStorage.getItem(key)||"[]");
+  }catch(e){
+    return [];
+  }
+}
+
+function saveStorage(key,data){
+  localStorage.setItem(key,JSON.stringify(data));
+}
+
+function publishPost(){
+  const name=document.getElementById("userName").value.trim()||"Usuário";
+  const city=document.getElementById("postCity").value.trim();
+  const category=document.getElementById("postCategory").value;
+  const description=document.getElementById("postText").value.trim();
+
+  if(!city || !description){
+    alert("Informe a cidade e a descrição.");
+    return;
+  }
+
+  const posts=getStorage("climaAlertaPosts");
+
+  posts.unshift({
+    name,city,category,description,
+    date:new Date().toLocaleString("pt-BR")
+  });
+
+  saveStorage("climaAlertaPosts",posts.slice(0,100));
+
+  document.getElementById("postText").value="";
+  renderFeed();
+  alert("Relato salvo neste aparelho.");
+}
+
+function publishRoad(){
+  const city=document.getElementById("roadPlace").value.trim();
+  const description=document.getElementById("roadDescription").value.trim();
+  const type=document.getElementById("roadType").value;
+
+  if(!city || !description){
+    alert("Informe o local e a descrição.");
+    return;
+  }
+
+  const posts=getStorage("climaAlertaPosts");
+  posts.unshift({
+    name:"Relato de rodovia",
+    city,
+    category:type,
+    description,
+    date:new Date().toLocaleString("pt-BR")
+  });
+
+  saveStorage("climaAlertaPosts",posts.slice(0,100));
+  document.getElementById("roadDescription").value="";
+  renderFeed();
+  alert("Relato registrado neste aparelho.");
+}
+
+function publishEnergy(){
+  const city=document.getElementById("energyPlace").value.trim();
+  const description=document.getElementById("energyDescription").value.trim();
+  const type=document.getElementById("energyType").value;
+
+  if(!city || !description){
+    alert("Informe o local e a descrição.");
+    return;
+  }
+
+  const posts=getStorage("climaAlertaPosts");
+  posts.unshift({
+    name:"Relato de energia",
+    city,
+    category:type,
+    description,
+    date:new Date().toLocaleString("pt-BR")
+  });
+
+  saveStorage("climaAlertaPosts",posts.slice(0,100));
+  document.getElementById("energyDescription").value="";
+  renderFeed();
+  alert("Relato registrado neste aparelho.");
+}
+
+function escapeHTML(value){
+  return String(value).replace(/[&<>"']/g,char=>({
+    "&":"&amp;",
+    "<":"&lt;",
+    ">":"&gt;",
+    '"':"&quot;",
+    "'":"&#39;"
+  })[char]);
+}
+
+function renderFeed(){
+  const posts=getStorage("climaAlertaPosts");
+  const feed=document.getElementById("communityFeed");
+
+  if(!posts.length){
+    feed.innerHTML="Ainda não existem relatos publicados neste aparelho.";
+    return;
+  }
+
+  feed.innerHTML=posts.map(post=>`
+    <div class="feed-item">
+      <strong>${escapeHTML(post.category)}</strong>
+      <p>📍 ${escapeHTML(post.city)}</p>
+      <p>${escapeHTML(post.description)}</p>
+      <p class="small">${escapeHTML(post.name)} • ${escapeHTML(post.date)}</p>
+      <p class="small">Relato de usuário — não é alerta oficial.</p>
+    </div>
+  `).join("");
+}
+
+window.addEventListener("load",()=>{
+  initializeMaps();
+  renderFeed();
+});
+</script>
+
+</body>
+</html>
