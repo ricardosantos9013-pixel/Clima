@@ -1,0 +1,837 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#071a2e">
+<title>Clima Alerta</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+<style>
+:root {
+  --bg:#071a2e;
+  --panel:#102a45;
+  --panel2:#173957;
+  --text:#f3f7fb;
+  --muted:#a9bfd3;
+  --blue:#28a9ff;
+  --green:#31d69b;
+  --orange:#ffb547;
+  --red:#ff6262;
+}
+* {box-sizing:border-box}
+body {
+  margin:0;
+  background:linear-gradient(160deg,#061526,#0c2945);
+  color:var(--text);
+  font-family:Arial,sans-serif;
+}
+header {
+  padding:22px 16px;
+  background:#061426;
+  border-bottom:1px solid #254765;
+}
+header h1 {margin:0;font-size:25px}
+header p {margin:7px 0 0;color:var(--muted);font-size:13px}
+main {max-width:1100px;margin:auto;padding:15px}
+.card {
+  background:var(--panel);
+  border:1px solid #244865;
+  border-radius:15px;
+  padding:16px;
+  margin-bottom:14px;
+}
+h2 {font-size:18px;margin:0 0 13px}
+h3 {font-size:15px;margin:0 0 8px}
+.muted {color:var(--muted);font-size:13px;line-height:1.5}
+.big {font-size:40px;font-weight:bold}
+.grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(145px,1fr));
+  gap:10px;
+}
+.metric {
+  background:var(--panel2);
+  border-radius:12px;
+  padding:13px;
+}
+.metric strong {display:block;font-size:22px;margin-top:7px}
+button,input,select {
+  font:inherit;
+  border-radius:9px;
+  padding:11px;
+  border:1px solid #41617c;
+}
+button {
+  background:var(--blue);
+  color:#04182b;
+  border:0;
+  font-weight:bold;
+  cursor:pointer;
+}
+button.secondary {
+  background:#254966;
+  color:white;
+}
+button.danger {background:#9c3535;color:white}
+input,select {
+  background:#071a2e;
+  color:white;
+  width:100%;
+}
+.actions {display:flex;gap:8px;flex-wrap:wrap}
+.actions button {flex:1;min-width:130px}
+#map {
+  height:420px;
+  width:100%;
+  border-radius:12px;
+  overflow:hidden;
+}
+.status {
+  padding:10px;
+  border-radius:9px;
+  background:#173957;
+  font-size:13px;
+  margin-top:10px;
+}
+.item {
+  background:#173957;
+  border-radius:10px;
+  padding:12px;
+  margin:8px 0;
+}
+.item small {color:var(--muted)}
+a {color:#65c4ff}
+.forecast {
+  display:flex;
+  gap:9px;
+  overflow-x:auto;
+  padding-bottom:8px;
+}
+.forecast-item {
+  min-width:105px;
+  background:#173957;
+  border-radius:10px;
+  padding:12px;
+  text-align:center;
+}
+footer {
+  text-align:center;
+  color:var(--muted);
+  padding:25px 12px;
+  font-size:12px;
+}
+</style>
+</head>
+
+<body>
+<header>
+  <h1>🌦️ Clima Alerta</h1>
+  <p>Monitoramento meteorológico, radar de chuva e informações de energia</p>
+</header>
+
+<main>
+
+<section class="card">
+  <h2>📍 Localização</h2>
+  <div class="actions">
+    <button onclick="usarGPS()">Usar minha localização</button>
+    <button class="secondary" onclick="buscarCidade()">Buscar cidade</button>
+  </div>
+  <div style="margin-top:12px">
+    <input id="cidadeBusca" placeholder="Digite uma cidade, ex.: Marília, SP">
+  </div>
+  <div class="status" id="localStatus">Local padrão: Marília - SP</div>
+</section>
+
+<section class="card">
+  <h2>🌡️ Condições atuais</h2>
+  <div id="climaAtual">
+    <div class="big">--°C</div>
+    <p class="muted">Carregando informações meteorológicas...</p>
+  </div>
+  <div class="grid" style="margin-top:14px">
+    <div class="metric">Sensação térmica<strong id="sensacao">--°C</strong></div>
+    <div class="metric">Umidade<strong id="umidade">--%</strong></div>
+    <div class="metric">Vento<strong id="vento">-- km/h</strong></div>
+    <div class="metric">Chuva<strong id="chuva">-- mm</strong></div>
+  </div>
+  <div class="status" id="atualizacao">Aguardando dados...</div>
+</section>
+
+<section class="card">
+  <h2>⏱️ Previsão das próximas horas</h2>
+  <div class="forecast" id="horas">
+    <p class="muted">Carregando previsão...</p>
+  </div>
+</section>
+
+<section class="card">
+  <h2>📅 Previsão para os próximos dias</h2>
+  <div id="dias" class="grid">
+    <p class="muted">Carregando...</p>
+  </div>
+</section>
+
+<section class="card">
+  <h2>🌧️ Radar de chuva ao vivo</h2>
+  <p class="muted">
+    Imagens de precipitação observada fornecidas pela RainViewer.
+    A disponibilidade depende da cobertura de radar da região.
+  </p>
+  <div id="map"></div>
+  <div class="status" id="radarStatus">Inicializando mapa...</div>
+  <div class="actions" style="margin-top:10px">
+    <button onclick="atualizarRadar()">Atualizar radar</button>
+    <button class="secondary" onclick="centralizarMapa()">Centralizar mapa</button>
+  </div>
+  <p class="muted">Créditos do mapa: OpenStreetMap, Leaflet e RainViewer.</p>
+</section>
+
+<section class="card">
+  <h2>⚡ Monitoramento de energia - CPFL Paulista</h2>
+  <p class="muted">
+    Consulte os canais oficiais para verificar interrupções e desligamentos programados.
+    Este site não possui conexão direta com uma API de ocorrências em tempo real da CPFL.
+  </p>
+  <div class="actions">
+    <button onclick="abrirCPFL()">Monitoramento CPFL</button>
+    <button class="secondary" onclick="abrirDesligamentos()">Desligamentos programados</button>
+    <button class="secondary" onclick="abrirFaltaEnergia()">Informar falta de energia</button>
+  </div>
+  <div class="status">
+    ⚠️ Não considere a ausência de registros manuais como confirmação de que não há interrupção na sua região.
+  </div>
+</section>
+
+<section class="card">
+  <h2>📝 Registro local de interrupções</h2>
+  <p class="muted">
+    Cadastre ocorrências que você deseja acompanhar. Os registros ficam salvos
+    neste navegador e não são confirmações oficiais da CPFL.
+  </p>
+  <input id="cidadeEnergia" placeholder="Cidade ou bairro">
+  <div style="height:8px"></div>
+  <select id="tipoEnergia">
+    <option value="Falta de energia informada">Falta de energia informada</option>
+    <option value="Desligamento programado">Desligamento programado</option>
+    <option value="Energia restabelecida">Energia restabelecida</option>
+  </select>
+  <div style="height:8px"></div>
+  <input id="detalheEnergia" placeholder="Observações (opcional)">
+  <div style="height:10px"></div>
+  <button onclick="adicionarOcorrencia()">Salvar registro</button>
+  <div id="listaEnergia" style="margin-top:12px"></div>
+</section>
+
+<section class="card">
+  <h2>🌙 Fase da Lua</h2>
+  <div class="grid">
+    <div class="metric">
+      <span id="luaEmoji" style="font-size:30px">🌙</span>
+      <strong id="luaFase">Calculando...</strong>
+    </div>
+    <div class="metric">
+      Iluminação aproximada
+      <strong id="luaLuz">--%</strong>
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>ℹ️ Informações meteorológicas</h2>
+  <p class="muted">
+    A previsão do tempo utiliza dados da Open-Meteo.
+    O radar apresenta imagens de precipitação observada.
+    Os dados podem sofrer atrasos e não substituem alertas oficiais.
+  </p>
+  <p class="muted">
+    Para alertas oficiais, consulte a
+    <a href="https://www.gov.br/defesacivil/pt-br" target="_blank" rel="noopener">Defesa Civil</a>
+    e o
+    <a href="https://www.gov.br/inmet/pt-br" target="_blank" rel="noopener">INMET</a>.
+  </p>
+</section>
+
+</main>
+
+<footer>
+  Clima Alerta • Projeto de monitoramento meteorológico<br>
+  Dados: Open-Meteo, RainViewer e OpenStreetMap
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+const PADRAO = {
+  lat: -22.2171,
+  lon: -49.9501,
+  nome: "Marília - SP"
+};
+
+let localAtual = {...PADRAO};
+let mapa = null;
+let marcador = null;
+let camadaBase = null;
+let camadaRadar = null;
+let controleCamadas = null;
+
+function elemento(id) {
+  return document.getElementById(id);
+}
+
+function texto(id, valor) {
+  elemento(id).textContent = valor;
+}
+
+function escaparHTML(valor) {
+  return String(valor).replace(/[&<>"']/g, function(c) {
+    return {
+      "&":"&amp;",
+      "<":"&lt;",
+      ">":"&gt;",
+      '"':"&quot;",
+      "'":"&#39;"
+    }[c];
+  });
+}
+
+function codigoClima(codigo) {
+  const codigos = {
+    0:"Céu limpo",
+    1:"Predominantemente limpo",
+    2:"Parcialmente nublado",
+    3:"Nublado",
+    45:"Nevoeiro",
+    48:"Nevoeiro com geada",
+    51:"Garoa leve",
+    53:"Garoa moderada",
+    55:"Garoa intensa",
+    61:"Chuva fraca",
+    63:"Chuva moderada",
+    65:"Chuva forte",
+    71:"Neve fraca",
+    73:"Neve moderada",
+    75:"Neve forte",
+    80:"Pancadas de chuva",
+    81:"Pancadas moderadas",
+    82:"Pancadas fortes",
+    95:"Trovoadas",
+    96:"Trovoadas com granizo",
+    99:"Trovoadas fortes com granizo"
+  };
+  return codigos[codigo] || "Condição não identificada";
+}
+
+function emojiClima(codigo) {
+  if ([0,1].includes(codigo)) return "☀️";
+  if ([2,3].includes(codigo)) return "⛅";
+  if ([45,48].includes(codigo)) return "🌫️";
+  if ([51,53,55,61,63,65,80,81,82].includes(codigo)) return "🌧️";
+  if ([95,96,99].includes(codigo)) return "⛈️";
+  return "🌤️";
+}
+
+async function carregarClima(lat, lon, nome) {
+  localAtual = {lat, lon, nome};
+  texto("localStatus", "Localização: " + nome);
+
+  elemento("climaAtual").innerHTML =
+    '<p class="muted">Atualizando informações...</p>';
+
+  try {
+    const url =
+      "https://api.open-meteo.com/v1/forecast" +
+      "?latitude=" + lat +
+      "&longitude=" + lon +
+      "&current=temperature_2m,relative_humidity_2m,apparent_temperature," +
+      "precipitation,weather_code,wind_speed_10m" +
+      "&hourly=temperature_2m,precipitation_probability,precipitation" +
+      "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max" +
+      "&timezone=auto&forecast_days=7";
+
+    const resposta = await fetch(url);
+
+    if (!resposta.ok) throw new Error("Erro ao consultar previsão.");
+
+    const dados = await resposta.json();
+    const atual = dados.current;
+
+    elemento("climaAtual").innerHTML =
+      '<div class="big">' + Math.round(atual.temperature_2m) + '°C</div>' +
+      '<h3>' + emojiClima(atual.weather_code) + ' ' +
+      codigoClima(atual.weather_code) + '</h3>' +
+      '<p class="muted">' + escaparHTML(nome) + '</p>';
+
+    texto("sensacao", Math.round(atual.apparent_temperature) + "°C");
+    texto("umidade", atual.relative_humidity_2m + "%");
+    texto("vento", atual.wind_speed_10m + " km/h");
+    texto("chuva", atual.precipitation + " mm");
+
+    texto(
+      "atualizacao",
+      "Última atualização: " +
+      new Date().toLocaleString("pt-BR")
+    );
+
+    mostrarHoras(dados.hourly);
+    mostrarDias(dados.daily);
+
+  } catch (erro) {
+    console.error(erro);
+    elemento("climaAtual").innerHTML =
+      '<p>Não foi possível carregar o clima. Verifique sua conexão e tente novamente.</p>';
+    texto("atualizacao", "Falha na consulta meteorológica.");
+  }
+}
+
+function mostrarHoras(horas) {
+  const container = elemento("horas");
+  container.innerHTML = "";
+
+  const agora = new Date();
+  let inicio = horas.time.findIndex(t => new Date(t) >= agora);
+  if (inicio < 0) inicio = 0;
+
+  for (let i = inicio; i < Math.min(inicio + 12, horas.time.length); i++) {
+    const hora = new Date(horas.time[i]).toLocaleTimeString("pt-BR", {
+      hour:"2-digit",
+      minute:"2-digit"
+    });
+
+    const item = document.createElement("div");
+    item.className = "forecast-item";
+    item.innerHTML =
+      "<strong>" + hora + "</strong>" +
+      "<p>🌡️ " + Math.round(horas.temperature_2m[i]) + "°C</p>" +
+      "<p>🌧️ " + (horas.precipitation_probability[i] ?? "--") + "%</p>" +
+      "<small>" + (horas.precipitation[i] ?? 0) + " mm</small>";
+
+    container.appendChild(item);
+  }
+}
+
+function mostrarDias(dias) {
+  const container = elemento("dias");
+  container.innerHTML = "";
+
+  for (let i = 0; i < dias.time.length; i++) {
+    const data = new Date(dias.time[i] + "T12:00:00");
+    const dia = data.toLocaleDateString("pt-BR", {
+      weekday:"short",
+      day:"2-digit",
+      month:"2-digit"
+    });
+
+    const item = document.createElement("div");
+    item.className = "metric";
+    item.innerHTML =
+      "<strong>" + dia + "</strong>" +
+      "<p>" + emojiClima(dias.weather_code[i]) + " " +
+      codigoClima(dias.weather_code[i]) + "</p>" +
+      "<p>Máx. " + Math.round(dias.temperature_2m_max[i]) + "°C</p>" +
+      "<p>Mín. " + Math.round(dias.temperature_2m_min[i]) + "°C</p>" +
+      "<small>Prob. chuva: " +
+      (dias.precipitation_probability_max[i] ?? "--") + "%</small>";
+
+    container.appendChild(item);
+  }
+}
+
+async function buscarCidade() {
+  const nome = elemento("cidadeBusca").value.trim();
+
+  if (!nome) {
+    alert("Digite o nome de uma cidade.");
+    return;
+  }
+
+  texto("localStatus", "Buscando cidade...");
+
+  try {
+    const url =
+      "https://geocoding-api.open-meteo.com/v1/search?name=" +
+      encodeURIComponent(nome) +
+      "&count=1&language=pt&format=json";
+
+    const resposta = await fetch(url);
+    const dados = await resposta.json();
+
+    if (!dados.results || !dados.results.length) {
+      throw new Error("Cidade não encontrada.");
+    }
+
+    const cidade = dados.results[0];
+    const nomeCompleto = [
+      cidade.name,
+      cidade.admin1,
+      cidade.country
+    ].filter(Boolean).join(" - ");
+
+    await carregarClima(
+      cidade.latitude,
+      cidade.longitude,
+      nomeCompleto
+    );
+
+    atualizarMarcador();
+    centralizarMapa();
+
+  } catch (erro) {
+    alert(erro.message || "Não foi possível buscar a cidade.");
+    texto("localStatus", "Falha ao buscar cidade.");
+  }
+}
+
+function usarGPS() {
+  if (!navigator.geolocation) {
+    alert("Seu navegador não oferece localização.");
+    return;
+  }
+
+  texto("localStatus", "Obtendo sua localização...");
+
+  navigator.geolocation.getCurrentPosition(
+    async function(posicao) {
+      const lat = posicao.coords.latitude;
+      const lon = posicao.coords.longitude;
+
+      await carregarClima(lat, lon, "Minha localização");
+      atualizarMarcador();
+      centralizarMapa();
+    },
+    function(erro) {
+      texto("localStatus", "Não foi possível obter GPS.");
+      alert("Autorize o acesso à localização ou escolha uma cidade.");
+    },
+    {
+      enableHighAccuracy:true,
+      timeout:15000,
+      maximumAge:60000
+    }
+  );
+}
+
+function iniciarMapa() {
+  const mapElement = elemento("map");
+
+  if (typeof L === "undefined") {
+    texto("radarStatus", "Leaflet não carregou. Verifique sua conexão.");
+    return;
+  }
+
+  if (mapa) return;
+
+  mapa = L.map("map").setView(
+    [localAtual.lat, localAtual.lon],
+    7
+  );
+
+  camadaBase = L.tileLayer(
+    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    {
+      attribution:"&copy; OpenStreetMap",
+      maxZoom:19
+    }
+  ).addTo(mapa);
+
+  marcador = L.marker([
+    localAtual.lat,
+    localAtual.lon
+  ]).addTo(mapa).bindPopup(localAtual.nome);
+
+  mapa.whenReady(function() {
+    setTimeout(function() {
+      mapa.invalidateSize();
+    }, 300);
+  });
+
+  atualizarRadar();
+}
+
+async function atualizarRadar() {
+  if (!mapa) {
+    iniciarMapa();
+    return;
+  }
+
+  texto("radarStatus", "Consultando imagens recentes do radar...");
+
+  try {
+    const resposta = await fetch(
+      "https://api.rainviewer.com/public/weather-maps.json",
+      {cache:"no-store"}
+    );
+
+    if (!resposta.ok) {
+      throw new Error("Servidor RainViewer respondeu " + resposta.status);
+    }
+
+    const dados = await resposta.json();
+    const quadros = dados.radar && dados.radar.past
+      ? dados.radar.past
+      : [];
+
+    if (!dados.host || !quadros.length) {
+      throw new Error("Não existem imagens recentes disponíveis.");
+    }
+
+    const quadro = quadros[quadros.length - 1];
+
+    if (camadaRadar) {
+      mapa.removeLayer(camadaRadar);
+      camadaRadar = null;
+    }
+
+    camadaRadar = L.tileLayer(
+      dados.host + quadro.path + "/256/{z}/{x}/{y}/2/1_1.png",
+      {
+        opacity:0.75,
+        maxNativeZoom:7,
+        maxZoom:12,
+        attribution:
+          'Radar: <a href="https://www.rainviewer.com/">RainViewer</a>'
+      }
+    );
+
+    camadaRadar.addTo(mapa);
+
+    if (controleCamadas) {
+      mapa.removeControl(controleCamadas);
+    }
+
+    controleCamadas = L.control.layers(
+      {"Mapa":camadaBase},
+      {"Radar de chuva":camadaRadar},
+      {collapsed:true}
+    ).addTo(mapa);
+
+    texto(
+      "radarStatus",
+      "Radar atualizado às " +
+      new Date(quadro.time * 1000).toLocaleTimeString("pt-BR") +
+      ". Exibindo precipitação observada."
+    );
+
+    camadaRadar.on("tileerror", function() {
+      texto(
+        "radarStatus",
+        "Algumas imagens do radar não estão disponíveis nesta região."
+      );
+    });
+
+  } catch (erro) {
+    console.error("Erro no radar:", erro);
+
+    if (controleCamadas) {
+      mapa.removeControl(controleCamadas);
+    }
+
+    controleCamadas = L.control.layers(
+      {"Mapa":camadaBase},
+      {},
+      {collapsed:true}
+    ).addTo(mapa);
+
+    texto(
+      "radarStatus",
+      "Radar temporariamente indisponível: " + erro.message
+    );
+  }
+}
+
+function atualizarMarcador() {
+  if (!mapa || !marcador) return;
+
+  marcador.setLatLng([localAtual.lat, localAtual.lon]);
+  marcador.setPopupContent(localAtual.nome);
+}
+
+function centralizarMapa() {
+  if (!mapa) return;
+
+  mapa.setView([
+    localAtual.lat,
+    localAtual.lon
+  ], 8);
+
+  mapa.invalidateSize();
+}
+
+function abrirCPFL() {
+  window.open(
+    "https://www.cpfl.com.br/monitoramento-interrupcoes-fornecimento",
+    "_blank",
+    "noopener"
+  );
+}
+
+function abrirDesligamentos() {
+  window.open(
+    "https://spir.cpfl.com.br/Publico/ConsultaDesligamentoProgramado/Visualizar/4",
+    "_blank",
+    "noopener"
+  );
+}
+
+function abrirFaltaEnergia() {
+  window.open(
+    "https://www.cpfl.com.br/agencia-virtual/falta-de-energia",
+    "_blank",
+    "noopener"
+  );
+}
+
+function lerOcorrencias() {
+  try {
+    return JSON.parse(
+      localStorage.getItem("climaAlertaOcorrencias") || "[]"
+    );
+  } catch(e) {
+    return [];
+  }
+}
+
+function adicionarOcorrencia() {
+  const cidade = elemento("cidadeEnergia").value.trim();
+  const tipo = elemento("tipoEnergia").value;
+  const detalhe = elemento("detalheEnergia").value.trim();
+
+  if (!cidade) {
+    alert("Informe a cidade ou bairro.");
+    return;
+  }
+
+  const lista = lerOcorrencias();
+
+  lista.unshift({
+    id:Date.now(),
+    cidade,
+    tipo,
+    detalhe,
+    data:new Date().toLocaleString("pt-BR")
+  });
+
+  localStorage.setItem(
+    "climaAlertaOcorrencias",
+    JSON.stringify(lista)
+  );
+
+  elemento("cidadeEnergia").value = "";
+  elemento("detalheEnergia").value = "";
+
+  mostrarOcorrencias();
+}
+
+function excluirOcorrencia(id) {
+  const novaLista = lerOcorrencias().filter(
+    item => item.id !== id
+  );
+
+  localStorage.setItem(
+    "climaAlertaOcorrencias",
+    JSON.stringify(novaLista)
+  );
+
+  mostrarOcorrencias();
+}
+
+function mostrarOcorrencias() {
+  const container = elemento("listaEnergia");
+  const lista = lerOcorrencias();
+
+  if (!lista.length) {
+    container.innerHTML =
+      '<p class="muted">Nenhum registro cadastrado.</p>';
+    return;
+  }
+
+  container.innerHTML = "";
+
+  lista.forEach(function(item) {
+    const div = document.createElement("div");
+    div.className = "item";
+
+    div.innerHTML =
+      "<strong>" + escaparHTML(item.cidade) + "</strong>" +
+      "<p>" + escaparHTML(item.tipo) + "</p>" +
+      "<small>" + escaparHTML(item.data) + "</small>" +
+      (item.detalhe
+        ? "<p>" + escaparHTML(item.detalhe) + "</p>"
+        : "") +
+      '<p><small>Registro manual, não confirmado pela CPFL.</small></p>';
+
+    const botao = document.createElement("button");
+    botao.className = "danger";
+    botao.textContent = "Excluir registro";
+    botao.onclick = function() {
+      excluirOcorrencia(item.id);
+    };
+
+    div.appendChild(botao);
+    container.appendChild(div);
+  });
+}
+
+function calcularLua() {
+  const agora = new Date();
+  const referencia = new Date(Date.UTC(2000, 0, 6, 18, 14));
+  const ciclo = 29.530588853;
+
+  const dias = (agora - referencia) / 86400000;
+  const idade = ((dias % ciclo) + ciclo) % ciclo;
+  const fracao = idade / ciclo;
+  const iluminacao =
+    Math.round((1 - Math.cos(2 * Math.PI * fracao)) / 2 * 100);
+
+  let fase, emoji;
+
+  if (fracao < 0.03 || fracao >= 0.97) {
+    fase = "Lua nova";
+    emoji = "🌑";
+  } else if (fracao < 0.22) {
+    fase = "Lua crescente";
+    emoji = "🌒";
+  } else if (fracao < 0.28) {
+    fase = "Quarto crescente";
+    emoji = "🌓";
+  } else if (fracao < 0.47) {
+    fase = "Gibosa crescente";
+    emoji = "🌔";
+  } else if (fracao < 0.53) {
+    fase = "Lua cheia";
+    emoji = "🌕";
+  } else if (fracao < 0.72) {
+    fase = "Gibosa minguante";
+    emoji = "🌖";
+  } else if (fracao < 0.78) {
+    fase = "Quarto minguante";
+    emoji = "🌗";
+  } else {
+    fase = "Lua minguante";
+    emoji = "🌘";
+  }
+
+  texto("luaEmoji", emoji);
+  texto("luaFase", fase);
+  texto("luaLuz", iluminacao + "%");
+}
+
+function iniciar() {
+  mostrarOcorrencias();
+  calcularLua();
+  carregarClima(
+    PADRAO.lat,
+    PADRAO.lon,
+    PADRAO.nome
+  );
+  iniciarMapa();
+}
+
+window.addEventListener("load", iniciar);
+</script>
+
+</body>
+</html>
