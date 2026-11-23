@@ -1,0 +1,8 @@
+{
+  "appId": "com.climaalerta.app",
+  "appName": "Clima Alerta",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}
