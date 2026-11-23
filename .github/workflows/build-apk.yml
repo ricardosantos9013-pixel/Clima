@@ -10,6 +10,10 @@ jobs:
   build-android-apk:
     runs-on: ubuntu-latest
 
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+
     steps:
       - name: Baixar código do repositório
         uses: actions/checkout@v4
@@ -25,8 +29,8 @@ jobs:
           distribution: "temurin"
           java-version: "21"
 
-      - name: Configurar Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Aceitar licenças do Android SDK
+        run: yes | sdkmanager --licenses > /dev/null || true
 
       - name: Instalar dependências
         run: npm install
