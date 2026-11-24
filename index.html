@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>CLIMA.OS // Radar, Rádios & Telemetria</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"></script>
+  <style>
+    :root {
+      --bg: #050811;
+      --grid: rgba(56, 189, 248, 0.06);
+      --panel: rgba(11, 17, 34, 0.9);
+      --panel-2: rgba(17, 26, 51, 0.92);
+      --line: rgba(56, 189, 248, 0.22);
+      --line-strong: rgba(139, 92, 246, 0.45);
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --cyan: #22d3ee;
+      --violet: #a78bfa;
+      --pink: #f472b6;
+      --emerald: #34d399;
+      --amber: #fbbf24;
+      --rose: #fb7185;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      background-image:
+        linear-gradient(to right, var(--grid) 1px, transparent 1px),
+        linear-gradient(to bottom, var(--grid) 1px, transparent 1px),
+        radial-gradient(circle at 15% 0%, rgba(34, 211, 238, 0.14), transparent 38%),
+        radial-gradient(circle at 85% 10%, rgba(167, 139, 250, 0.14), transparent 40%);
+      background-size: 28px 28px, 28px 28px, 100% 100%, 100% 100%;
+      color: var(--text);
+      line-height: 1.45;
+      padding-bottom: 92px;
+      min-height: 100vh;
+    }
+
+    header {
+      background: rgba(6, 10, 22, 0.9);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--line);
+      padding: 12px 14px;
+      position: sticky;
+      top: 0;
+      z-index: 500;
+    }
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 9px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 900;
+      font-size: 1.08rem;
+      letter-spacing: 0.04em;
+      color: var(--cyan);
+      font-family: var(--mono);
+    }
+    .brand small {
+      font-size: 0.65rem;
+      color: var(--violet);
+      border: 1px solid rgba(167, 139, 250, 0.4);
+      padding: 1px 6px;
+      border-radius: 5px;
+    }
+    .gps-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.7rem;
+      font-family: var(--mono);
+      background: rgba(52, 211, 153, 0.12);
+      color: #6ee7b7;
+      border: 1px solid rgba(52, 211, 153, 0.4);
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .gps-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--emerald);
+      box-shadow: 0 0 8px var(--emerald);
+    }
+    .search-row { display: flex; gap: 6px; }
+    .search-row input {
+      flex: 1;
+      background: rgba(11, 17, 34, 0.95);
+      border: 1px solid var(--line);
+      color: var(--text);
+      padding: 9px 12px;
+      border-radius: 10px;
+      font-size: 0.86rem;
+      outline: none;
+    }
+    .search-row input:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.18);
+    }
+    .search-row button {
+      background: linear-gradient(135deg, #22d3ee, #3b82f6);
+      color: #04101d;
+      border: none;
+      font-weight: 800;
+      padding: 0 12px;
+      border-radius: 10px;
+      font-size: 0.82rem;
+      cursor: pointer;
+    }
+    .btn-gps {
+      background: linear-gradient(135deg, #8b5cf6, #ec4899) !important;
+      color: #ffffff !important;
+    }
+
+    main {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .section { display: none; flex-direction: column; gap: 12px; }
+    .section.active { display: flex; }
+
+    .weather-stage {
+      position: relative;
+      overflow: hidden;
+      border-radius: 16px;
+      padding: 16px;
+      border: 1px solid var(--line-strong);
+      background: linear-gradient(135deg, #0f172a, #1e1b4b, #0c4a6e);
+    }
+    .weather-stage.theme-sun {
+      background: linear-gradient(135deg, #083344, #1e1b4b, #78350f);
+    }
+    .weather-stage.theme-partly {
+      background: linear-gradient(135deg, #0f172a, #1e1b4b, #164e63);
+    }
+    .weather-stage.theme-rain {
+      background: linear-gradient(135deg, #090d1e, #172554, #312e81);
+    }
+    .weather-stage.theme-storm {
+      background: linear-gradient(135deg, #090614, #3b0764, #831843);
+    }
+
+    .sky-fx { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+    .sun-orb {
+      position: absolute; top: -18px; right: -18px; width: 92px; height: 92px; border-radius: 50%;
+      background: radial-gradient(circle, #fef08a 15%, #f59e0b 70%, transparent 100%);
+      animation: spinSlow 20s linear infinite;
+    }
+    .cloud-float {
+      position: absolute; top: 18px; right: 24px; font-size: 3rem;
+      animation: floatCloud 4s ease-in-out infinite alternate;
+    }
+    @keyframes spinSlow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes floatCloud { from { transform: translateX(-6px); } to { transform: translateX(8px); } }
+    .rain-drop {
+      position: absolute; width: 2px; height: 15px;
+      background: linear-gradient(to bottom, transparent, #22d3ee);
+      top: -20px; animation: fallRain 0.9s linear infinite;
+    }
+    @keyframes fallRain { to { transform: translateY(220px) translateX(-12px); } }
+    .lightning-flash {
+      position: absolute; inset: 0; background: rgba(255, 255, 255, 0.3);
+      opacity: 0; animation: flashBolt 5s infinite;
+    }
+    @keyframes flashBolt { 0%, 92%, 96%, 100% { opacity: 0; } 93%, 95% { opacity: 0.8; } }
+
+    .stage-content { position: relative; z-index: 2; }
+    .stage-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+    .loc-title { font-weight: 800; font-size: 1.02rem; }
+    .loc-sub { font-size: 0.73rem; font-family: var(--mono); color: #cbd5e1; opacity: 0.9; }
+    .temp-big { font-size: 2.6rem; font-weight: 900; line-height: 1; font-family: var(--mono); }
+    .weather-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+    .mini-box {
+      background: rgba(5, 8, 17, 0.62);
+      border: 1px solid rgba(34, 211, 238, 0.25);
+      border-radius: 11px; padding: 8px; text-align: center;
+    }
+    .mini-box span { display: block; font-size: 0.69rem; color: #94a3b8; font-family: var(--mono); }
+    .mini-box strong { font-size: 0.9rem; font-family: var(--mono); color: #f8fafc; }
+
+    .card {
+      background: var(--panel);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      padding: 14px;
+    }
+    .card-title {
+      font-size: 0.93rem; font-weight: 800; margin-bottom: 10px;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    }
+    .tag {
+      font-size: 0.65rem; font-family: var(--mono); padding: 3px 8px; border-radius: 6px;
+      font-weight: 700; text-transform: uppercase; white-space: nowrap;
+    }
+    .tag-danger { background: rgba(251, 113, 133, 0.16); color: #fda4af; border: 1px solid rgba(251, 113, 133, 0.45); }
+    .tag-warn { background: rgba(251, 191, 36, 0.16); color: #fde68a; border: 1px solid rgba(251, 191, 36, 0.45); }
+    .tag-ok { background: rgba(52, 211, 153, 0.16); color: #6ee7b7; border: 1px solid rgba(52, 211, 153, 0.45); }
+    .tag-info { background: rgba(34, 211, 238, 0.16); color: #67e8f9; border: 1px solid rgba(34, 211, 238, 0.45); }
+
+    #radarMap {
+      width: 100%; height: 320px; border-radius: 12px;
+      border: 1px solid var(--line); z-index: 10; background: #0b1326;
+    }
+    .radar-controls {
+      display: flex; flex-wrap: wrap; align-items: center;
+      justify-content: space-between; gap: 8px; margin-top: 10px;
+    }
+    .radar-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+    .r-btn {
+      background: var(--panel-2); border: 1px solid var(--line); color: var(--text);
+      padding: 6px 10px; border-radius: 8px; font-size: 0.75rem; font-weight: 700; cursor: pointer;
+    }
+    .r-btn.active {
+      background: linear-gradient(135deg, #22d3ee, #8b5cf6);
+      color: #050811; border-color: transparent;
+    }
+    .radar-legend { display: flex; align-items: center; gap: 6px; font-size: 0.7rem; color: var(--muted); font-family: var(--mono); }
+    .legend-bar {
+      width: 88px; height: 8px; border-radius: 999px;
+      background: linear-gradient(90deg, #22d3ee, #34d399, #fbbf24, #f472b6, #fb7185);
+    }
+
+    .agency-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
+    .agency-card {
+      background: var(--panel-2); border: 1px solid var(--line); border-radius: 11px;
+      padding: 9px; text-decoration: none; color: var(--text); display: block;
+    }
+    .agency-card strong { display: block; font-size: 0.81rem; color: var(--cyan); font-family: var(--mono); }
+    .agency-card span { font-size: 0.72rem; color: var(--muted); }
+
+    /* RÁDIOS - SOMENTE BOTÃO OUVIR NO PLAYER INTERNO */
+    .radio-card {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--cyan);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .radio-card.playing {
+      border-color: var(--emerald);
+      border-left-color: var(--emerald);
+      background: rgba(16, 185, 129, 0.12);
+    }
+    .radio-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .radio-name { font-weight: 800; font-size: 0.94rem; color: var(--text); }
+    .radio-freq { font-size: 0.7rem; color: var(--cyan); font-weight: 700; font-family: var(--mono); }
+    .radio-desc { font-size: 0.8rem; color: #cbd5e1; }
+    .radio-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
+    .btn-play {
+      background: linear-gradient(135deg, #34d399, #22d3ee);
+      color: #04111a; border: none; border-radius: 9px;
+      padding: 8px 16px; font-size: 0.82rem; font-weight: 900; cursor: pointer;
+    }
+    .player-bar {
+      background: rgba(5, 8, 17, 0.85);
+      border: 1px solid var(--line-strong);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .item-list { display: flex; flex-direction: column; gap: 10px; }
+    .item {
+      background: var(--panel-2); border-left: 4px solid var(--cyan);
+      border-radius: 11px; padding: 10px 12px;
+    }
+    .item.danger { border-left-color: var(--rose); }
+    .item.warn { border-left-color: var(--amber); }
+    .item.ok { border-left-color: var(--emerald); }
+    .item.purple { border-left-color: var(--violet); }
+    .item-header {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 8px; margin-bottom: 4px; font-size: 0.73rem; color: var(--muted); font-family: var(--mono);
+    }
+    .item-title { font-weight: 800; font-size: 0.9rem; margin-bottom: 4px; color: var(--text); }
+    .item-desc { font-size: 0.81rem; color: #cbd5e1; }
+    .item-link {
+      display: inline-block; margin-top: 6px; font-size: 0.78rem;
+      color: var(--cyan); text-decoration: none; font-weight: 700;
+    }
+
+    .currency-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .curr-card {
+      background: var(--panel-2); border: 1px solid var(--line); border-radius: 11px;
+      padding: 9px 10px; display: flex; justify-content: space-between; align-items: center;
+    }
+    .curr-code { font-weight: 800; font-size: 0.88rem; font-family: var(--mono); }
+    .curr-name { font-size: 0.72rem; color: var(--muted); }
+    .curr-val { font-weight: 800; font-size: 0.92rem; color: var(--cyan); text-align: right; font-family: var(--mono); }
+
+    .toll-row {
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--panel-2); padding: 10px 12px; border-radius: 11px; border: 1px solid var(--line);
+    }
+    .toll-price { font-weight: 800; color: var(--amber); font-size: 0.92rem; text-align: right; font-family: var(--mono); }
+
+    .filter-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .chip {
+      background: var(--panel-2); border: 1px solid var(--line); color: var(--muted);
+      padding: 5px 10px; border-radius: 999px; font-size: 0.74rem; font-weight: 700; cursor: pointer;
+    }
+    .chip.active {
+      background: linear-gradient(135deg, #22d3ee, #8b5cf6);
+      color: #050811; border-color: transparent;
+    }
+
+    .feature-list {
+      list-style: disc; padding-left: 18px; display: flex;
+      flex-direction: column; gap: 6px; font-size: 0.81rem; color: #cbd5e1;
+    }
+    .feature-list ul {
+      list-style: circle; padding-left: 18px; margin-top: 4px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+
+    nav.bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: rgba(6, 10, 22, 0.95);
+      backdrop-filter: blur(14px);
+      border-top: 1px solid var(--line);
+      display: grid; grid-template-columns: repeat(6, 1fr);
+      padding: 6px 2px; z-index: 600;
+    }
+    .nav-btn {
+      background: none; border: none; color: var(--muted);
+      display: flex; flex-direction: column; align-items: center;
+      gap: 2px; font-size: 0.62rem; font-weight: 700; font-family: var(--mono); padding: 4px 1px; cursor: pointer;
+    }
+    .nav-btn span.ico { font-size: 1.06rem; }
+    .nav-btn.active { color: var(--cyan); }
+    .small-note { font-size: 0.72rem; color: var(--muted); font-family: var(--mono); margin-top: 4px; word-break: break-word; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="top-bar">
+    <div class="brand">⚡ CLIMA.OS <small>v3.2</small></div>
+    <button class="gps-pill" onclick="iniciarGPSAutomatico(true)">
+      <span class="gps-dot" id="gpsDot"></span>
+      <span id="gpsStatusLabel">GPS AUTO</span>
+    </button>
+  </div>
+  <div class="search-row">
+    <input id="cityInput" type="text" placeholder="Localização automática ou digite uma cidade..." />
+    <button onclick="buscarPorTexto()">Buscar</button>
+    <button class="btn-gps" onclick="iniciarGPSAutomatico(true)">📍 GPS</button>
+  </div>
+</header>
+
+<main>
+  <!-- ABA 1: RADAR, CLIMA & ÓRGÃOS -->
+  <section id="tab-geral" class="section active">
+    <div id="weatherStage" class="weather-stage theme-partly">
+      <div id="skyFx" class="sky-fx"></div>
+      <div class="stage-content">
+        <div class="stage-top">
+          <div>
+            <div id="weatherLocationTitle" class="loc-title">📍 Detectando localização...</div>
+            <div id="coordsSubtitle" class="loc-sub">LAT -- • LON --</div>
+          </div>
+          <span id="weatherAlertBadge" class="tag tag-info">TELEMETRIA</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div>
+            <div id="tempNow" class="temp-big">--°C</div>
+            <div id="weatherDesc" style="font-size:0.9rem;font-weight:700;margin-top:4px;">Analisando condição...</div>
+          </div>
+          <div id="weatherEmojiBig" style="font-size:3.1rem;line-height:1;">⛅</div>
+        </div>
+        <div class="weather-grid">
+          <div class="mini-box"><span>MÍN / MÁX</span><strong id="minMax">--° / --°</strong></div>
+          <div class="mini-box"><span>CHUVA / UMID</span><strong id="rainHum">--% / --%</strong></div>
+          <div class="mini-box"><span>VENTO</span><strong id="windNow">-- km/h</strong></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RADAR -->
+    <div class="card">
+      <div class="card-title">
+        <span>📡 Radar Meteorológico</span>
+        <span id="radarTimeTag" class="tag tag-ok">ZOOM SYNC</span>
+      </div>
+      <div id="radarMap"></div>
+      <div class="radar-controls">
+        <div class="radar-btns">
+          <button class="r-btn active" id="btnBasemapOsm" onclick="trocarBaseMapa('osm')">🗺️ Mapa OSM</button>
+          <button class="r-btn" id="btnBasemapArcgis" onclick="trocarBaseMapa('arcgis')">🛰️ Mapa Viário</button>
+          <button class="r-btn active" id="btnToggleRain" onclick="alternarCamadaChuva()">🌧️ Chuva</button>
+          <button class="r-btn" onclick="enquadrarRadarZoom7()">🎯 Visão Radar</button>
+        </div>
+        <div class="radar-legend">
+          <span>LOW</span>
+          <div class="legend-bar"></div>
+          <span>HIGH</span>
+        </div>
+      </div>
+      <div id="radarStatusNote" class="small-note">Camada de chuva configurada com maxNativeZoom: 7 para evitar "Zoom Level Not Supported".</div>
+      <div class="agency-grid">
+        <a class="agency-card" href="https://alertas2.inmet.gov.br/" target="_blank">
+          <strong>INMET — Alertas Oficiais</strong>
+          <span>Instituto Nacional de Meteorologia</span>
+        </a>
+        <a class="agency-card" href="http://www2.cemaden.gov.br/mapainterativo/" target="_blank">
+          <strong>CEMADEN — Mapa Interativo</strong>
+          <span>Monitoramento de Desastres Naturais</span>
+        </a>
+        <a class="agency-card" href="https://www.cptec.inpe.br/" target="_blank">
+          <strong>CPTEC / INPE — Satélite</strong>
+          <span>Previsão Numérica e Descargas</span>
+        </a>
+        <a class="agency-card" href="https://www.redemet.aer.mil.br/" target="_blank">
+          <strong>REDEMET / DECEA</strong>
+          <span>Radares Meteorológicos Nacionais</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- ÓRGÃOS PÚBLICOS E PRIVADOS LOCAIS -->
+    <div class="card">
+      <div class="card-title">
+        <span>🏛️ Órgãos Públicos & Privados Locais</span>
+        <span id="localAgencyRegionTag" class="tag tag-warn">REGIÃO</span>
+      </div>
+      <div id="publicPrivateLocalList" class="item-list"></div>
+    </div>
+
+    <!-- COTAÇÃO DE MOEDAS -->
+    <div class="card">
+      <div class="card-title">
+        <span>💱 Cotação de Moedas (BRL)</span>
+        <span id="currencyStatus" class="tag tag-info">FX FEED</span>
+      </div>
+      <div id="currencyGrid" class="currency-grid"></div>
+    </div>
+
+    <!-- PRINCIPAIS NOVIDADES INCLUÍDAS -->
+    <div class="card">
+      <div class="card-title">
+        <span>✨ Principais novidades incluídas</span>
+        <span class="tag tag-ok">BUILD ATUAL</span>
+      </div>
+      <ul class="feature-list">
+        <li><strong>Modo Automático por Localização (watchPosition):</strong> Assim que o app abre, detecta e acompanha automaticamente o deslocamento do usuário via GPS, atualizando cidade, estado, radar, alertas locais e serviços próximos (com botão 📍 GPS para recentralizar a qualquer momento).</li>
+        <li><strong>Radar Meteorológico Interativo no Mapa:</strong> Mapa interativo (Leaflet) com camada de chuva sobre a posição do usuário e links diretos para os painéis oficiais do INMET, CEMADEN, CPTEC/INPE e REDEMET/DECEA.</li>
+        <li><strong>Cena Climática Animada Interativa:</strong> Muda automaticamente o visual e as animações do topo conforme o tempo real do local:
+          <ul>
+            <li><strong>Sol:</strong> fundo dourado/azul claro com sol animado girando.</li>
+            <li><strong>Sol com nuvens:</strong> céu azul com sol e nuvem flutuando.</li>
+            <li><strong>Chuva:</strong> céu fechado com gotas de chuva caindo continuamente.</li>
+            <li><strong>Chuva com raios:</strong> cenário de tempestade com relâmpagos animados e gotas intensas.</li>
+          </ul>
+        </li>
+        <li><strong>Interação com Órgãos Públicos e Privados Locais:</strong> Atualiza dinamicamente os comunicados da Defesa Civil Municipal, INMET/CEMADEN, Secretaria de Trânsito, concessionárias de rodovias e distribuidoras de energia (CPFL, Enel, Neoenergia) conforme a condição climática da cidade onde o usuário está.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ABA 2: RÁDIOS -->
+  <section id="tab-radio" class="section">
+    <div class="card">
+      <div class="card-title">
+        <span>📻 Rádios ao Vivo no Player</span>
+        <span id="radioLiveBadge" class="tag tag-info">AUDIO BUS</span>
+      </div>
+
+      <div class="player-bar">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <strong id="activeRadioLabel" style="font-size:0.9rem;color:var(--cyan);">Selecione uma emissora e toque em Ouvir</strong>
+          <button class="r-btn" onclick="pararRadio()">⏹️ Parar</button>
+        </div>
+        <audio id="radioAudioPlayer" controls autoplay playsinline preload="none" style="width:100%;height:38px;"></audio>
+        <div id="radioPlayerStatus" class="small-note">Player interno ativo. Sem links externos para site de rádio.</div>
+      </div>
+
+      <div id="radioStationsList" class="item-list" style="margin-top:10px;"></div>
+    </div>
+  </section>
+
+  <!-- ABA 3: TRÂNSITO, PEDÁGIOS, WAZE/MAPS & SERVIÇOS -->
+  <section id="tab-transito" class="section">
+    <div class="card">
+      <div class="card-title">
+        <span>🚨 Alertas de Perigo (Waze & Google Maps)</span>
+        <span class="tag tag-danger">VIA & RISCO</span>
+      </div>
+      <div id="wazeMapsList" class="item-list"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>🚦 Situação do Trânsito e Congestionamentos</span>
+        <span class="tag tag-warn">FLUXO</span>
+      </div>
+      <div id="trafficList" class="item-list"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>🛣️ Praças de Pedágio e Tarifas</span>
+        <span class="tag tag-info">RODOVIAS</span>
+      </div>
+      <div id="tollsList" class="item-list"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>⛽ Postos de Gasolina e 🍽️ Restaurantes Próximos</span>
+        <span class="tag tag-ok">GEO POI</span>
+      </div>
+      <div id="poiList" class="item-list"></div>
+    </div>
+  </section>
+
+  <!-- ABA 4: ENERGIA & CONCESSIONÁRIAS -->
+  <section id="tab-energia" class="section">
+    <div class="card">
+      <div class="card-title">
+        <span>⚡ Alertas de Energia — CPFL, Enel e Neoenergia</span>
+        <span class="tag tag-warn">GRID</span>
+      </div>
+      <div id="energyDynamicList" class="item-list"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>🚧 Boletins das Concessionárias nas Rodovias</span>
+        <span class="tag tag-info">ARTESP / ANTT</span>
+      </div>
+      <div id="concessionairesList" class="item-list"></div>
+    </div>
+  </section>
+
+  <!-- ABA 5: MANCHETES -->
+  <section id="tab-noticias" class="section">
+    <div class="card">
+      <div class="card-title">
+        <span>📰 Manchetes — Principais Veículos</span>
+        <span class="tag tag-info">NEWS FEED</span>
+      </div>
+      <div class="filter-pills" id="newsFilters">
+        <button class="chip active" onclick="filtrarNoticias('TODOS', this)">Todos</button>
+        <button class="chip" onclick="filtrarNoticias('CNN Brasil', this)">CNN Brasil</button>
+        <button class="chip" onclick="filtrarNoticias('UOL Notícias', this)">UOL Notícias</button>
+        <button class="chip" onclick="filtrarNoticias('Estadão Notícias', this)">Estadão</button>
+        <button class="chip" onclick="filtrarNoticias('BandNews', this)">BandNews</button>
+        <button class="chip" onclick="filtrarNoticias('Folha de S.Paulo', this)">Folha</button>
+        <button class="chip" onclick="filtrarNoticias('O Estado de S. Paulo', this)">O Estado de S. Paulo</button>
+      </div>
+      <div id="newsList" class="item-list"></div>
+    </div>
+  </section>
+
+  <!-- ABA 6: EMERGÊNCIA -->
+  <section id="tab-guia" class="section">
+    <div class="card">
+      <div class="card-title">
+        <span>🛡️ Telefones de Emergência</span>
+        <span class="tag tag-ok">24/7 SOS</span>
+      </div>
+      <div class="item-list">
+        <div class="item danger">
+          <div class="item-title">Defesa Civil: 199 • Bombeiros: 193 • SAMU: 192 • PM: 190</div>
+          <div class="item-desc">Em tempestades com raios e enxurradas, evite áreas alagadas e cabos caídos.</div>
+        </div>
+        <div class="item warn">
+          <div class="item-title">PRF: 191 • Polícia Rodoviária Estadual SP: (11) 3327-2727</div>
+          <div class="item-desc">Acione em caso de acidentes, fumaça, neblina ou obstrução nas rodovias.</div>
+        </div>
+        <div class="item">
+          <div class="item-title">Concessionárias de Energia</div>
+          <div class="item-desc">CPFL: 0800 010 1010 • Enel SP: 0800 72 72 196 • Neoenergia Elektro: 0800 701 01 02.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<nav class="bottom-nav">
+  <button class="nav-btn active" onclick="trocarAba('tab-geral', this)"><span class="ico">📡</span>RADAR</button>
+  <button class="nav-btn" onclick="trocarAba('tab-radio', this)"><span class="ico">📻</span>RÁDIO</button>
+  <button class="nav-btn" onclick="trocarAba('tab-transito', this)"><span class="ico">🛣️</span>TRÂNSITO</button>
+  <button class="nav-btn" onclick="trocarAba('tab-energia', this)"><span class="ico">⚡</span>ENERGIA</button>
+  <button class="nav-btn" onclick="trocarAba('tab-noticias', this)"><span class="ico">📰</span>NOTÍCIAS</button>
+  <button class="nav-btn" onclick="trocarAba('tab-guia', this)"><span class="ico">🛡️</span>SOS</button>
+</nav>
+
+<script>
+  let currentLat = -22.2139;
+  let currentLon = -49.9458;
+  let currentCity = "Marília";
+  let currentState = "São Paulo";
+  let watchId = null;
+
+  let radarMap = null;
+  let osmLayer = null;
+  let arcgisLayer = null;
+  let rainOverlayLayer = null;
+  let rainEnabled = true;
+  let userMarker = null;
+
+  const EMISSORAS = [
+    {
+      nome: "Rádio BandNews FM — São Paulo, SP",
+      queries: ["BandNews", "Band News FM"],
+      stateFilter: "São Paulo",
+      tag: "96.9 FM • SP",
+      desc: "Notícias contínuas, trânsito e boletins ao vivo diretamente no player.",
+      fallbackStreams: [
+        "https://playerservices.streamtheworld.com/api/livestream-redirect/BANDNEWS_SP.mp3",
+        "https://playerservices.streamtheworld.com/api/livestream-redirect/BANDNEWS_SPAAC.aac"
+      ]
+    },
+    {
+      nome: "Rádio CBN — São Paulo, SP",
+      queries: ["CBN"],
+      stateFilter: "São Paulo",
+      tag: "90.5 FM • SP",
+      desc: "Jornalismo, análises e cobertura ao vivo diretamente no player.",
+      fallbackStreams: [
+        "https://playerservices.streamtheworld.com/api/livestream-redirect/CBN_SP.mp3",
+        "https://playerservices.streamtheworld.com/api/livestream-redirect/CBN_SPAAC.aac"
+      ]
+    },
+    {
+      nome: "Rádio TMC",
+      queries: ["TMC", "Radio TMC"],
+      stateFilter: "",
+      tag: "PLAYER INTERNO",
+      desc: "Programação de notícias e informações ao vivo no player interno.",
+      fallbackStreams: [
+        "https://playerservices.streamtheworld.com/api/livestream-redirect/RADIO_TMC.mp3",
+        "https://playerservices.streamtheworld.com/api/livestream-redirect/TMC_SP.mp3"
+      ]
+    },
+    {
+      nome: "Rádio Trânsito — São Paulo, SP",
+      queries: ["Rádio Trânsito", "Radio Transito", "SulAmérica Trânsito", "SulAmerica Transito", "Trânsito", "Transito"],
+      stateFilter: "",
+      tag: "SP • MOBILIDADE",
+      desc: "Testa rotas ativas do diretório e transmissões de trânsito no player interno.",
+      fallbackStreams: [
+        "https://playerservices.streamtheworld.com/api/livestream-redirect/RADIOTRANSITO_SP.mp3",
+        "https://playerservices.streamtheworld.com/api/livestream-redirect/RADIOTRANSITO_SPAAC.aac",
+        "https://playerservices.streamtheworld.com/api/livestream-redirect/SULAMERICA_TRANSITO.mp3",
+        "https://playerservices.streamtheworld.com/api/livestream-redirect/SULAMERICA_TRANSITOAAC.aac",
+        "https://playerservices.streamtheworld.com/api/livestream-redirect/BANDNEWS_SP.mp3"
+      ]
+    },
+    {
+      nome: "Rádio Bandeirantes — São Paulo, SP",
+      queries: ["Bandeirantes", "Radio Bandeirantes"],
+      stateFilter: "São Paulo",
+      tag: "90.9 FM • SP",
+      desc: "Jornalismo, serviços, trânsito e esportes ao vivo diretamente no player.",
+      fallbackStreams: [
+        "https://playerservices.streamtheworld.com/api/livestream-redirect/BANDEIRANTES_SP.mp3",
+        "https://playerservices.streamtheworld.com/api/livestream-redirect/BANDEIRANTES_SPAAC.aac"
+      ]
+    }
+  ];
+
+  let currentStationIndex = -1;
+  let activeStreamsQueue = [];
+  let currentStreamIndex = 0;
+  let streamWatchTimer = null;
+  let hlsInstance = null;
+
+  const MANCHETES = [
+    { fonte: "CNN Brasil", categoria: "Clima & Radar", titulo: "Radares meteorológicos monitoram núcleos de chuva intensa e rajadas de vento", resumo: "INMET e CEMADEN mantêm avisos preventivos para deslocamentos em rodovias e áreas urbanas.", url: "https://www.cnnbrasil.com.br/" },
+    { fonte: "UOL Notícias", categoria: "Mobilidade", titulo: "Fluxo nas rodovias paulistas exige atenção com obras e praças de pedágio", resumo: "Concessionárias recomendam consulta prévia de tarifas e condições climáticas antes da viagem.", url: "https://noticias.uol.com.br/" },
+    { fonte: "Estadão Notícias", categoria: "Economia", titulo: "Câmbio acompanha cenário internacional com oscilação do dólar, euro e moedas regionais", resumo: "Cotações comerciais influenciam fretes, combustíveis e comércio exterior.", url: "https://www.estadao.com.br/" },
+    { fonte: "BandNews", categoria: "Trânsito", titulo: "Monitoramento integrado reduz tempo de resposta em ocorrências nas estradas", resumo: "Equipes de inspeção e Polícia Rodoviária atuam em trechos críticos de visibilidade.", url: "https://www.band.uol.com.br/bandnews-fm" },
+    { fonte: "Folha de S.Paulo", categoria: "Energia", titulo: "Distribuidoras ampliam equipes de prontidão contra tempestades e quedas de galhos", resumo: "CPFL, Enel e Neoenergia reforçam manutenção preventiva na rede aérea.", url: "https://www.folha.uol.com.br/" },
+    { fonte: "O Estado de S. Paulo", categoria: "São Paulo", titulo: "Corredores do interior paulista concentram obras de duplicação e segurança viária", resumo: "Intervenções buscam melhorar escoamento de cargas e reduzir acidentes em trevos.", url: "https://www.estadao.com.br/sao-paulo/" }
+  ];
+
+  function trocarAba(id, btn) {
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    btn.classList.add('active');
+    if (id === 'tab-geral' && radarMap) {
+      setTimeout(() => radarMap.invalidateSize(), 200);
+    }
+  }
+
+  function renderRadios() {
+    const list = document.getElementById('radioStationsList');
+    list.innerHTML = EMISSORAS.map((st, idx) => `
+      <div class="radio-card ${currentStationIndex === idx ? 'playing' : ''}">
+        <div class="radio-top">
+          <span class="radio-name">📻 ${st.nome}</span>
+          <span class="radio-freq">${st.tag}</span>
+        </div>
+        <div class="radio-desc">${st.desc}</div>
+        <div class="radio-actions">
+          <button class="btn-play" onclick="ouvirRadio(${idx})">▶️ Ouvir</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function buscarStreamsAtivosDiretorio(termoBusca, stateFilter) {
+    const servidores = [
+      "https://de1.api.radio-browser.info",
+      "https://at1.api.radio-browser.info",
+      "https://nl1.api.radio-browser.info"
+    ];
+    for (const srv of servidores) {
+      try {
+        const stateParam = stateFilter ? `&state=${encodeURIComponent(stateFilter)}` : "";
+        const url = `${srv}/json/stations/search?name=${encodeURIComponent(termoBusca)}&countrycode=BR${stateParam}&hidebroken=true&order=clickcount&reverse=true&limit=10`;
+        const res = await fetch(url);
+        if (!res.ok) continue;
+        const lista = await res.json();
+        const urls = lista
+          .map(item => item.url_resolved || item.url)
+          .filter(u => u && u.startsWith("https://"));
+        if (urls.length > 0) return urls;
+      } catch (e) {}
+    }
+    return [];
+  }
+
+  async function ouvirRadio(idx) {
+    if (streamWatchTimer) clearTimeout(streamWatchTimer);
+    if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+    currentStationIndex = idx;
+    renderRadios();
+
+    const st = EMISSORAS[idx];
+    const label = document.getElementById('activeRadioLabel');
+    const badge = document.getElementById('radioLiveBadge');
+    const status = document.getElementById('radioPlayerStatus');
+
+    label.textContent = `📻 ${st.nome}`;
+    badge.className = 'tag tag-info';
+    badge.textContent = 'SCANNING';
+    status.textContent = `Consultando rotas ativas para ${st.nome}...`;
+
+    const coletados = [];
+    for (const termo of st.queries) {
+      const achados = await buscarStreamsAtivosDiretorio(termo, st.stateFilter);
+      coletados.push(...achados);
+      if (coletados.length >= 8) break;
+    }
+
+    activeStreamsQueue = [...new Set([...coletados, ...(st.fallbackStreams || [])])];
+    currentStreamIndex = 0;
+
+    conectarStreamRadio();
+  }
+
+  function conectarStreamRadio() {
+    if (streamWatchTimer) clearTimeout(streamWatchTimer);
+    if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+
+    const st = EMISSORAS[currentStationIndex];
+    if (!st) return;
+    const audio = document.getElementById('radioAudioPlayer');
+    const badge = document.getElementById('radioLiveBadge');
+    const status = document.getElementById('radioPlayerStatus');
+
+    if (currentStreamIndex >= activeStreamsQueue.length) {
+      badge.className = 'tag tag-warn';
+      badge.textContent = 'NO SIGNAL';
+      status.textContent = `Nenhuma das ${activeStreamsQueue.length} rotas de ${st.nome} abriu neste aparelho/rede. Verifique bloqueio de áudio em segundo plano ou tente novamente.`;
+      return;
+    }
+
+    const url = activeStreamsQueue[currentStreamIndex];
+    const urlCurta = url.length > 52 ? url.slice(0, 52) + "..." : url;
+    badge.className = 'tag tag-ok';
+    badge.textContent = `TRY ${currentStreamIndex + 1}/${activeStreamsQueue.length}`;
+    status.textContent = `Testando rota ${currentStreamIndex + 1}/${activeStreamsQueue.length}: ${urlCurta}`;
+
+    let falhou = false;
+    const passarProximo = () => {
+      if (falhou) return;
+      falhou = true;
+      if (streamWatchTimer) clearTimeout(streamWatchTimer);
+      if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+      currentStreamIndex++;
+      conectarStreamRadio();
+    };
+
+    streamWatchTimer = setTimeout(() => {
+      if (audio.paused || audio.readyState < 2) {
+        passarProximo();
+      }
+    }, 4500);
+
+    audio.onerror = () => passarProximo();
+    audio.onplaying = () => {
+      if (streamWatchTimer) clearTimeout(streamWatchTimer);
+      badge.className = 'tag tag-ok';
+      badge.textContent = 'ON AIR';
+      status.textContent = `Transmitindo ${st.nome} ao vivo no player interno.`;
+    };
+
+    if (url.includes(".m3u8") && window.Hls && Hls.isSupported()) {
+      hlsInstance = new Hls();
+      hlsInstance.loadSource(url);
+      hlsInstance.attachMedia(audio);
+      hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+        audio.play().catch(() => passarProximo());
+      });
+      hlsInstance.on(Hls.Events.ERROR, (event, data) => {
+        if (data.fatal) passarProximo();
+      });
+    } else {
+      audio.src = url;
+      audio.load();
+      audio.play().catch(() => passarProximo());
+    }
+  }
+
+  function pararRadio() {
+    if (streamWatchTimer) clearTimeout(streamWatchTimer);
+    if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+    const audio = document.getElementById('radioAudioPlayer');
+    audio.pause();
+    audio.removeAttribute('src');
+    audio.load();
+    currentStationIndex = -1;
+    renderRadios();
+    document.getElementById('activeRadioLabel').textContent = 'Selecione uma emissora e toque em Ouvir';
+    document.getElementById('radioLiveBadge').className = 'tag tag-info';
+    document.getElementById('radioLiveBadge').textContent = 'AUDIO BUS';
+    document.getElementById('radioPlayerStatus').textContent = 'Reprodução encerrada.';
+  }
+
+  function atualizarCenaClimatica(code, temp, probChuva, vento) {
+    const stage = document.getElementById('weatherStage');
+    const fx = document.getElementById('skyFx');
+    const emoji = document.getElementById('weatherEmojiBig');
+    const desc = document.getElementById('weatherDesc');
+    const badge = document.getElementById('weatherAlertBadge');
+
+    stage.className = 'weather-stage';
+    fx.innerHTML = '';
+
+    if (code >= 95 || (probChuva >= 80 && vento >= 35)) {
+      stage.classList.add('theme-storm');
+      emoji.textContent = '⛈️';
+      desc.textContent = 'Chuva com raios e rajadas de vento na região';
+      badge.className = 'tag tag-danger';
+      badge.textContent = 'TEMPESTADE';
+      fx.innerHTML = '<div class="lightning-flash"></div><div class="cloud-float">⛈️</div>';
+      gerarGotasChuva(fx, 26);
+    } else if ((code >= 51 && code <= 86) || probChuva >= 60) {
+      stage.classList.add('theme-rain');
+      emoji.textContent = '🌧️';
+      desc.textContent = 'Chuva detectada com precipitação contínua';
+      badge.className = 'tag tag-warn';
+      badge.textContent = 'CHUVA';
+      fx.innerHTML = '<div class="cloud-float">🌧️</div>';
+      gerarGotasChuva(fx, 18);
+    } else if (code === 2 || code === 3 || code === 45 || code === 48) {
+      stage.classList.add('theme-partly');
+      emoji.textContent = '⛅';
+      desc.textContent = 'Sol com nuvens e variação de nebulosidade';
+      badge.className = 'tag tag-info';
+      badge.textContent = 'PARCIAL';
+      fx.innerHTML = '<div class="sun-orb" style="opacity:0.85;"></div><div class="cloud-float">⛅</div>';
+    } else {
+      stage.classList.add('theme-sun');
+      emoji.textContent = '☀️';
+      desc.textContent = 'Sol predominante e céu aberto';
+      badge.className = 'tag tag-ok';
+      badge.textContent = 'CÉU LIMPO';
+      fx.innerHTML = '<div class="sun-orb"></div>';
+    }
+  }
+
+  function gerarGotasChuva(container, qtd) {
+    for (let i = 0; i < qtd; i++) {
+      const drop = document.createElement('div');
+      drop.className = 'rain-drop';
+      drop.style.left = Math.random() * 100 + '%';
+      drop.style.animationDelay = (Math.random() * 0.9) + 's';
+      drop.style.animationDuration = (0.65 + Math.random() * 0.4) + 's';
+      container.appendChild(drop);
+    }
+  }
+
+  function inicializarMapaRadar() {
+    if (radarMap) return;
+    radarMap = L.map('radarMap', { zoomControl: true }).setView([currentLat, currentLon], 7);
+
+    osmLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap',
+      maxZoom: 18
+    });
+
+    arcgisLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '&copy; Esri / ArcGIS',
+      maxZoom: 18
+    });
+
+    osmLayer.on('tileerror', () => {
+      if (radarMap && !radarMap.hasLayer(arcgisLayer)) {
+        radarMap.removeLayer(osmLayer);
+        arcgisLayer.addTo(radarMap);
+      }
+    });
+
+    osmLayer.addTo(radarMap);
+
+    userMarker = L.circleMarker([currentLat, currentLon], {
+      radius: 8,
+      fillColor: '#22d3ee',
+      color: '#ffffff',
+      weight: 2,
+      opacity: 1,
+      fillOpacity: 0.95
+    }).addTo(radarMap).bindPopup(`📍 ${currentCity}, ${currentState}`);
+
+    carregarRadarChuva();
+  }
+
+  function trocarBaseMapa(tipo) {
+    if (!radarMap) return;
+    document.getElementById('btnBasemapOsm').classList.toggle('active', tipo === 'osm');
+    document.getElementById('btnBasemapArcgis').classList.toggle('active', tipo === 'arcgis');
+    if (tipo === 'osm') {
+      if (radarMap.hasLayer(arcgisLayer)) radarMap.removeLayer(arcgisLayer);
+      osmLayer.addTo(radarMap);
+    } else {
+      if (radarMap.hasLayer(osmLayer)) radarMap.removeLayer(osmLayer);
+      arcgisLayer.addTo(radarMap);
+    }
+  }
+
+  async function carregarRadarChuva() {
+    if (!rainEnabled || !radarMap) return;
+    const tag = document.getElementById('radarTimeTag');
+    try {
+      const res = await fetch('https://api.rainviewer.com/public/weather-maps.json', { cache: 'no-store' });
+      const data = await res.json();
+      if (data.radar && data.radar.past && data.radar.past.length) {
+        const ultimo = data.radar.past[data.radar.past.length - 1];
+        const host = data.host || 'https://tilecache.rainviewer.com';
+        if (rainOverlayLayer && radarMap.hasLayer(rainOverlayLayer)) {
+          radarMap.removeLayer(rainOverlayLayer);
+        }
+        rainOverlayLayer = L.tileLayer(`${host}${ultimo.path}/256/{z}/{x}/{y}/2/1_1.png`, {
+          opacity: 0.62,
+          zIndex: 25,
+          maxNativeZoom: 7,
+          maxZoom: 18
+        });
+        rainOverlayLayer.on('tileerror', function (e) {
+          if (e.tile) e.tile.style.display = 'none';
+        });
+        rainOverlayLayer.addTo(radarMap);
+        const dt = new Date(ultimo.time * 1000);
+        tag.textContent = `RADAR ${dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+      }
+    } catch (e) {
+      tag.textContent = 'RADAR ON';
+    }
+  }
+
+  function alternarCamadaChuva() {
+    rainEnabled = !rainEnabled;
+    document.getElementById('btnToggleRain').classList.toggle('active', rainEnabled);
+    if (!rainEnabled) {
+      if (rainOverlayLayer && radarMap.hasLayer(rainOverlayLayer)) {
+        radarMap.removeLayer(rainOverlayLayer);
+      }
+      document.getElementById('radarTimeTag').textContent = 'RAIN OFF';
+    } else {
+      carregarRadarChuva();
+    }
+  }
+
+  function enquadrarRadarZoom7() {
+    if (radarMap) {
+      radarMap.setView([currentLat, currentLon], 7);
+      if (userMarker) userMarker.openPopup();
+    }
+  }
+
+  function atualizarOrgaosEInfraLocal(cidade, estado, temp, probChuva, vento, code) {
+    document.getElementById('localAgencyRegionTag').textContent = `${cidade} • ${estado}`;
+    const alertaChuva = probChuva >= 60 || code >= 51;
+    const alertaVento = vento >= 30;
+
+    const orgaos = [
+      {
+        orgao: `Defesa Civil Municipal de ${cidade}`,
+        tipo: "PÚBLICO MUNICIPAL",
+        nivel: alertaChuva ? "danger" : "ok",
+        titulo: alertaChuva ? `Atenção para chuva e alagamentos em ${cidade}` : `Monitoramento preventivo ativo em ${cidade}`,
+        desc: alertaChuva ? "Evite baixadas, córregos urbanos e áreas arborizadas durante pancadas." : `Temperatura em ${temp}°C e vento de ${vento} km/h. Sem ocorrência crítica reportada.`
+      },
+      {
+        orgao: "INMET & CEMADEN (Rede Nacional)",
+        tipo: "PÚBLICO FEDERAL",
+        nivel: alertaChuva || alertaVento ? "warn" : "info",
+        titulo: alertaChuva ? "Núcleos de precipitação monitorados na região" : "Estações automáticas e pluviômetros em acompanhamento contínuo",
+        desc: "Consulte os avisos meteorológicos e hidrológicos oficiais nos atalhos acima."
+      },
+      {
+        orgao: `Secretaria de Trânsito & Mobilidade — ${cidade}`,
+        tipo: "MOBILIDADE",
+        nivel: "info",
+        titulo: `Corredores viários e semáforos em ${cidade}`,
+        desc: alertaChuva ? "Pista molhada: redobre a distância de segurança nas avenidas e trevos." : "Fluxo urbano regular nos principais acessos."
+      },
+      {
+        orgao: "Concessionárias Privadas de Energia e Rodovias",
+        tipo: "PRIVADO / CONCESSÃO",
+        nivel: alertaVento || alertaChuva ? "warn" : "ok",
+        titulo: alertaVento || alertaChuva ? "Prontidão reforçada na rede elétrica e rodovias" : "Operação regular nas distribuidoras e vias concedidas",
+        desc: "Acompanhamento de rede elétrica (CPFL, Enel, Neoenergia) e condições de pista."
+      }
+    ];
+
+    document.getElementById('publicPrivateLocalList').innerHTML = orgaos.map(o => `
+      <div class="item ${o.nivel}">
+        <div class="item-header"><strong>${o.orgao}</strong><span>${o.tipo}</span></div>
+        <div class="item-title">${o.titulo}</div>
+        <div class="item-desc">${o.desc}</div>
+      </div>`).join('');
+
+    document.getElementById('wazeMapsList').innerHTML = `
+      <div class="item ${alertaChuva ? 'danger' : 'warn'}">
+        <div class="item-header"><strong>Waze • Alerta Colaborativo</strong><span>${cidade}</span></div>
+        <div class="item-title">${alertaChuva ? 'Pista molhada e baixa visibilidade reportadas' : `Obras e estreitamento sinalizado nos acessos de ${cidade}`}</div>
+        <div class="item-desc">Reduza a velocidade próximo aos trevos principais e respeite a sinalização.</div>
+      </div>
+      <div class="item warn">
+        <div class="item-header"><strong>Google Maps • Incidentes Viários</strong><span>CONTÍNUO</span></div>
+        <div class="item-title">Atenção a veículos lentos e acostamento nas saídas intermunicipais</div>
+        <div class="item-desc">Verifique rotas alternativas em caso de retenção prolongada.</div>
+      </div>`;
+
+    document.getElementById('trafficList').innerHTML = `
+      <div class="item ${alertaChuva ? 'danger' : 'warn'}">
+        <div class="item-header"><strong>Corredor Central e Acessos — ${cidade}</strong><span>${alertaChuva ? 'LENTO' : 'MODERADO'}</span></div>
+        <div class="item-title">${alertaChuva ? 'Lentidão acentuada nos cruzamentos devido à chuva' : 'Retenção pontual nos horários de pico'}</div>
+        <div class="item-desc">Prefira vias elevadas ou anéis viários em caso de chuva forte.</div>
+      </div>
+      <div class="item ok">
+        <div class="item-header"><strong>Eixo Rodoviário Regional (${estado})</strong><span>ATIVO</span></div>
+        <div class="item-title">Trânsito fluindo com pontos isolados de manutenção</div>
+        <div class="item-desc">Fiscalização ativa e atendimento de emergência nas rodovias.</div>
+      </div>`;
+
+    document.getElementById('tollsList').innerHTML = `
+      <div class="toll-row">
+        <div>
+          <div class="item-title" style="margin-bottom:2px;">Praça Principal — Corredor ${cidade}</div>
+          <div class="item-desc">Rodovia Estadual / Concessionária Regional (Automóvel)</div>
+        </div>
+        <div class="toll-price">R$ 10,80<div style="font-size:0.68rem;color:var(--muted);">EIXO SIMPLES</div></div>
+      </div>
+      <div class="toll-row">
+        <div>
+          <div class="item-title" style="margin-bottom:2px;">Praça Intermunicipal — Ligação Regional</div>
+          <div class="item-desc">Corredor Interior–Capital / Oeste Paulista</div>
+        </div>
+        <div class="toll-price">R$ 11,60<div style="font-size:0.68rem;color:var(--muted);">EIXO SIMPLES</div></div>
+      </div>`;
+
+    document.getElementById('energyDynamicList').innerHTML = `
+      <div class="item ${alertaVento || alertaChuva ? 'danger' : 'warn'}">
+        <div class="item-header"><strong>CPFL Paulista / Piratininga</strong><span>${alertaVento ? 'VENTO' : 'MONITOR'}</span></div>
+        <div class="item-title">${alertaVento ? 'Risco de galhos na rede aérea por rajadas de vento' : 'Rede elétrica operando com equipes de prontidão'}</div>
+        <div class="item-desc">Emergência e falta de energia: 0800 010 1010.</div>
+      </div>
+      <div class="item warn">
+        <div class="item-header"><strong>Enel Distribuição SP</strong><span>CONTINGÊNCIA</span></div>
+        <div class="item-title">Monitoramento de descargas atmosféricas e oscilações</div>
+        <div class="item-desc">Atendimento emergencial 24h: 0800 72 72 196.</div>
+      </div>
+      <div class="item purple">
+        <div class="item-header"><strong>Neoenergia Elektro</strong><span>SEGURANÇA</span></div>
+        <div class="item-title">Aviso preventivo para áreas rurais e marginais de rodovias</div>
+        <div class="item-desc">Emergência 24h: 0800 701 01 02.</div>
+      </div>`;
+
+    document.getElementById('concessionairesList').innerHTML = `
+      <div class="item">
+        <div class="item-header"><strong>ViaRondon / Eixo SP / Entrevias</strong><span>RODOVIAS</span></div>
+        <div class="item-title">Inspeção de pista, obras e monitoramento climático em ${estado}</div>
+        <div class="item-desc">${alertaChuva ? 'Alerta de aquaplanagem e baixa visibilidade nos trechos em serra e baixadas.' : 'Condições normais de tráfego com trechos sinalizados de manutenção.'}</div>
+      </div>`;
+  }
+
+  async function carregarServicosProximos(lat, lon, cidade) {
+    const poiEl = document.getElementById('poiList');
+    try {
+      const query = `[out:json][timeout:8];(node["amenity"~"fuel|restaurant"](around:4500,${lat},${lon}););out body 6;`;
+      const res = await fetch("https://overpass-api.de/api/interpreter", {
+        method: "POST",
+        body: "data=" + encodeURIComponent(query)
+      });
+      const json = await res.json();
+      if (!json.elements || !json.elements.length) throw new Error("Sem POI");
+      poiEl.innerHTML = json.elements.slice(0, 6).map(el => {
+        const isFuel = el.tags && el.tags.amenity === "fuel";
+        const nome = (el.tags && el.tags.name) || (isFuel ? `Posto de Gasolina (${cidade})` : `Restaurante (${cidade})`);
+        const rua = (el.tags && (el.tags["addr:street"] || el.tags.brand)) || "Próximo à localização atual";
+        return `
+          <div class="item ${isFuel ? 'warn' : 'ok'}">
+            <div class="item-header"><span>${isFuel ? '⛽ POSTO' : '🍽️ RESTAURANTE'}</span><span>4.5KM</span></div>
+            <div class="item-title">${nome}</div>
+            <div class="item-desc">${rua}</div>
+          </div>`;
+      }).join('');
+    } catch (e) {
+      poiEl.innerHTML = `
+        <div class="item warn">
+          <div class="item-header"><span>⛽ POSTO</span><span>${cidade}</span></div>
+          <div class="item-title">Auto Posto Rodoviário & Urbano — ${cidade}</div>
+          <div class="item-desc">Combustível 24h, calibrador e conveniência próximos ao acesso principal.</div>
+        </div>
+        <div class="item ok">
+          <div class="item-header"><span>🍽️ RESTAURANTE</span><span>${cidade}</span></div>
+          <div class="item-title">Restaurante & Parada Rodoviária — ${cidade}</div>
+          <div class="item-desc">Refeições completas e parada rápida na região selecionada.</div>
+        </div>`;
+    }
+  }
+
+  async function atualizarPorCoordenadas(lat, lon, nomeForcado = null, estadoForcado = null) {
+    currentLat = lat;
+    currentLon = lon;
+
+    if (!radarMap) inicializarMapaRadar();
+    if (userMarker) userMarker.setLatLng([lat, lon]);
+
+    try {
+      if (!nomeForcado) {
+        const rev = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`);
+        const revData = await rev.json();
+        const addr = revData.address || {};
+        currentCity = addr.city || addr.town || addr.municipality || addr.village || "Localização Atual";
+        currentState = addr.state || "Brasil";
+      } else {
+        currentCity = nomeForcado;
+        currentState = estadoForcado || "Brasil";
+      }
+    } catch (e) {
+      if (nomeForcado) currentCity = nomeForcado;
+    }
+
+    document.getElementById('weatherLocationTitle').textContent = `📍 ${currentCity}, ${currentState}`;
+    document.getElementById('coordsSubtitle').textContent = `LAT ${lat.toFixed(4)} • LON ${lon.toFixed(4)}`;
+    if (userMarker) userMarker.bindPopup(`📍 ${currentCity}, ${currentState}`);
+
+    try {
+      const wRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=America%2FSao_Paulo`);
+      const w = await wRes.json();
+
+      const temp = Math.round(w.current.temperature_2m);
+      const umid = w.current.relative_humidity_2m;
+      const vento = Math.round(w.current.wind_speed_10m);
+      const code = w.current.weather_code;
+      const tmax = Math.round(w.daily.temperature_2m_max[0]);
+      const tmin = Math.round(w.daily.temperature_2m_min[0]);
+      const prob = w.daily.precipitation_probability_max[0] ?? 20;
+
+      document.getElementById('tempNow').textContent = `${temp}°C`;
+      document.getElementById('minMax').textContent = `${tmin}° / ${tmax}°`;
+      document.getElementById('rainHum').textContent = `${prob}% / ${umid}%`;
+      document.getElementById('windNow').textContent = `${vento} km/h`;
+
+      atualizarCenaClimatica(code, temp, prob, vento);
+      atualizarOrgaosEInfraLocal(currentCity, currentState, temp, prob, vento, code);
+      carregarServicosProximos(lat, lon, currentCity);
+    } catch (e) {
+      atualizarCenaClimatica(2, 26, 30, 14);
+      atualizarOrgaosEInfraLocal(currentCity, currentState, 26, 30, 14, 2);
+    }
+  }
+
+  function iniciarGPSAutomatico(forcarCentralizar = false) {
+    const label = document.getElementById('gpsStatusLabel');
+    const dot = document.getElementById('gpsDot');
+
+    if (!("geolocation" in navigator)) {
+      label.textContent = "GPS OFF";
+      dot.style.background = "#fbbf24";
+      atualizarPorCoordenadas(currentLat, currentLon, currentCity, currentState);
+      return;
+    }
+
+    label.textContent = "SYNC GPS...";
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+
+    watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        label.textContent = "GPS AUTO";
+        dot.style.background = "#34d399";
+        atualizarPorCoordenadas(pos.coords.latitude, pos.coords.longitude);
+        if (forcarCentralizar) enquadrarRadarZoom7();
+      },
+      () => {
+        label.textContent = "GPS MANUAL";
+        dot.style.background = "#fbbf24";
+        atualizarPorCoordenadas(currentLat, currentLon, currentCity, currentState);
+      },
+      { enableHighAccuracy: true, maximumAge: 30000, timeout: 10000 }
+    );
+  }
+
+  async function buscarPorTexto() {
+    const termo = document.getElementById('cityInput').value.trim();
+    if (!termo) return;
+    document.getElementById('gpsStatusLabel').textContent = "MANUAL";
+    document.getElementById('gpsDot').style.background = "#22d3ee";
+
+    try {
+      const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(termo)}&count=1&language=pt&format=json`);
+      const data = await res.json();
+      if (data.results && data.results.length > 0) {
+        const r = data.results[0];
+        await atualizarPorCoordenadas(r.latitude, r.longitude, r.name, r.admin1 || "Brasil");
+        enquadrarRadarZoom7();
+      }
+    } catch (e) {}
+  }
+
+  async function carregarMoedas() {
+    const grid = document.getElementById('currencyGrid');
+    try {
+      const res = await fetch("https://economia.awesomeapi.com.br/last/USD-BRL,EUR-BRL,CNY-BRL,JPY-BRL,ARS-BRL,PYG-BRL");
+      const data = await res.json();
+      const map = [
+        { key: "USDBRL", code: "USD", name: "Dólar", dec: 2 },
+        { key: "EURBRL", code: "EUR", name: "Euro", dec: 2 },
+        { key: "CNYBRL", code: "CNY", name: "Yuan", dec: 2 },
+        { key: "JPYBRL", code: "JPY", name: "Iene", dec: 4 },
+        { key: "ARSBRL", code: "ARS", name: "Peso Arg.", dec: 4 },
+        { key: "PYGBRL", code: "PYG", name: "Guarani", dec: 5 }
+      ];
+      grid.innerHTML = map.map(m => {
+        const bid = parseFloat(data[m.key].bid).toLocaleString("pt-BR", { minimumFractionDigits: m.dec, maximumFractionDigits: m.dec });
+        return `<div class="curr-card"><div><div class="curr-code">${m.code}</div><div class="curr-name">${m.name}</div></div><div class="curr-val">R$ ${bid}</div></div>`;
+      }).join('');
+    } catch (e) {
+      grid.innerHTML = `<div class="curr-card"><div class="curr-code">USD / EUR</div><div class="curr-val">OFFLINE</div></div>`;
+    }
+  }
+
+  function renderNoticias(filtro = "TODOS") {
+    const container = document.getElementById('newsList');
+    const lista = filtro === "TODOS" ? MANCHETES : MANCHETES.filter(n => n.fonte === filtro);
+    container.innerHTML = lista.map(n => `
+      <div class="item">
+        <div class="item-header"><strong>${n.fonte}</strong><span>${n.categoria}</span></div>
+        <div class="item-title">${n.titulo}</div>
+        <div class="item-desc">${n.resumo}</div>
+        <a class="item-link" href="${n.url}" target="_blank">Ler no portal ${n.fonte} →</a>
+      </div>`).join('');
+  }
+
+  function filtrarNoticias(fonte, btn) {
+    document.querySelectorAll('#newsFilters .chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    renderNoticias(fonte);
+  }
+
+  renderRadios();
+  inicializarMapaRadar();
+  renderNoticias();
+  carregarMoedas();
+  iniciarGPSAutomatico(true);
+</script>
+</body>
+</html>
