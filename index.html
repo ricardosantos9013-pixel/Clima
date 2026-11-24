@@ -1,0 +1,749 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#090F20">
+<title>Alerta GPS</title>
+
+<style>
+:root {
+  --bg:#090F20;
+  --card:#151F36;
+  --card2:#1B2944;
+  --border:#293A58;
+  --text:#F4F7FF;
+  --muted:#9AABC4;
+  --blue:#168BFF;
+  --cyan:#00D9FF;
+  --purple:#8B5CF6;
+  --green:#00D6A0;
+  --red:#FF647C;
+  --yellow:#FACC15;
+}
+
+* {
+  box-sizing:border-box;
+  margin:0;
+  padding:0;
+}
+
+body {
+  background:var(--bg);
+  color:var(--text);
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  min-height:100vh;
+}
+
+button {
+  font-family:inherit;
+  cursor:pointer;
+}
+
+.app {
+  max-width:760px;
+  margin:auto;
+  padding:18px 16px 130px;
+}
+
+header {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin:10px 0 25px;
+}
+
+.brand {
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.brand-icon {
+  width:45px;
+  height:45px;
+  display:grid;
+  place-items:center;
+  border-radius:15px;
+  background:linear-gradient(135deg,var(--blue),var(--purple));
+  font-size:23px;
+}
+
+.brand h1 {
+  font-size:20px;
+  font-weight:900;
+  letter-spacing:-.8px;
+}
+
+.brand small {
+  color:var(--muted);
+  font-size:10px;
+  letter-spacing:1.4px;
+}
+
+.status {
+  border:1px solid #126b58;
+  background:#08382F;
+  color:#55E9BD;
+  padding:8px 11px;
+  border-radius:30px;
+  font-size:10px;
+  font-weight:800;
+}
+
+.greeting {
+  margin-bottom:22px;
+}
+
+.greeting h2 {
+  font-size:25px;
+  margin-bottom:7px;
+  letter-spacing:-.8px;
+}
+
+.greeting p {
+  color:var(--muted);
+  font-size:13px;
+}
+
+.section-head {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin:24px 0 13px;
+}
+
+.section-head h3 {
+  font-size:16px;
+}
+
+.section-head span {
+  color:var(--cyan);
+  font-size:11px;
+}
+
+.search {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:15px;
+  padding:14px;
+  margin-bottom:22px;
+}
+
+.search input {
+  background:transparent;
+  border:0;
+  outline:none;
+  color:white;
+  width:100%;
+  font-size:13px;
+}
+
+.search input::placeholder {
+  color:#8495AE;
+}
+
+.grid {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+}
+
+.module {
+  background:linear-gradient(145deg,#1A2945,#121B30);
+  border:1px solid var(--border);
+  border-radius:19px;
+  padding:17px;
+  min-height:137px;
+  text-align:left;
+  color:white;
+  transition:.2s;
+}
+
+.module:active {
+  transform:scale(.97);
+}
+
+.module-icon {
+  width:45px;
+  height:45px;
+  display:grid;
+  place-items:center;
+  border-radius:14px;
+  font-size:23px;
+  margin-bottom:13px;
+}
+
+.module h4 {
+  font-size:14px;
+  margin-bottom:5px;
+}
+
+.module p {
+  color:var(--muted);
+  font-size:11px;
+  line-height:1.4;
+}
+
+.blue {background:#123C65}
+.purple {background:#35265F}
+.green {background:#10483F}
+.yellow {background:#51421B}
+.orange {background:#59351D}
+.red {background:#572638}
+
+.screen {
+  display:none;
+}
+
+.screen.active {
+  display:block;
+}
+
+.back {
+  background:var(--card);
+  border:1px solid var(--border);
+  color:white;
+  padding:10px 14px;
+  border-radius:12px;
+  margin-bottom:18px;
+  font-size:12px;
+}
+
+.panel {
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:16px;
+  margin-bottom:12px;
+}
+
+.panel h3 {
+  font-size:16px;
+  margin-bottom:8px;
+}
+
+.panel p {
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.6;
+}
+
+.radio {
+  display:flex;
+  align-items:center;
+  gap:12px;
+  background:var(--card);
+  border:1px solid var(--border);
+  padding:13px;
+  border-radius:15px;
+  margin-bottom:10px;
+}
+
+.radio-logo {
+  width:44px;
+  height:44px;
+  flex-shrink:0;
+  display:grid;
+  place-items:center;
+  background:#263B5D;
+  border-radius:12px;
+  font-size:22px;
+}
+
+.radio-info {
+  flex:1;
+  min-width:0;
+}
+
+.radio-info strong {
+  font-size:13px;
+  display:block;
+}
+
+.radio-info small {
+  color:var(--muted);
+  font-size:11px;
+}
+
+.listen {
+  background:var(--blue);
+  color:white;
+  border:0;
+  padding:10px 12px;
+  border-radius:10px;
+  font-size:11px;
+  font-weight:800;
+}
+
+.player {
+  position:fixed;
+  z-index:1000;
+  bottom:82px;
+  left:12px;
+  right:12px;
+  max-width:736px;
+  margin:auto;
+  background:rgba(22,34,57,.97);
+  backdrop-filter:blur(18px);
+  border:1px solid #405477;
+  border-radius:17px;
+  padding:12px;
+  box-shadow:0 8px 30px #0009;
+  display:none;
+}
+
+.player.show {
+  display:block;
+}
+
+.player-row {
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.player-icon {
+  width:43px;
+  height:43px;
+  display:grid;
+  place-items:center;
+  background:linear-gradient(135deg,var(--blue),var(--purple));
+  border-radius:12px;
+  font-size:21px;
+}
+
+.player-info {
+  flex:1;
+  min-width:0;
+}
+
+.player-info strong {
+  font-size:13px;
+  display:block;
+}
+
+.player-info small {
+  font-size:10px;
+  color:var(--muted);
+}
+
+.player-controls {
+  display:flex;
+  gap:8px;
+}
+
+.player-controls button {
+  background:#263B5D;
+  color:white;
+  border:0;
+  width:37px;
+  height:37px;
+  border-radius:50%;
+}
+
+.player-close {
+  background:transparent!important;
+  color:#AABBD0!important;
+}
+
+.player-status {
+  color:var(--cyan);
+  font-size:10px;
+  margin-top:9px;
+}
+
+.bottom-nav {
+  position:fixed;
+  z-index:1100;
+  bottom:10px;
+  left:10px;
+  right:10px;
+  max-width:740px;
+  margin:auto;
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  background:rgba(14,23,43,.96);
+  backdrop-filter:blur(20px);
+  border:1px solid #354567;
+  border-radius:19px;
+  padding:8px 3px;
+  box-shadow:0 8px 30px #0009;
+}
+
+.nav-btn {
+  background:transparent;
+  border:0;
+  color:#9AABC4;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:4px;
+  padding:7px 2px;
+  font-size:10px;
+}
+
+.nav-btn span:first-child {
+  font-size:19px;
+}
+
+.nav-btn.active {
+  color:var(--cyan);
+}
+
+.notice {
+  background:#17263D;
+  border:1px solid #344B68;
+  padding:13px;
+  border-radius:14px;
+  margin-bottom:12px;
+}
+
+.notice strong {
+  font-size:12px;
+}
+
+.notice p {
+  color:var(--muted);
+  font-size:11px;
+  margin-top:5px;
+  line-height:1.5;
+}
+
+footer {
+  text-align:center;
+  color:#62738D;
+  font-size:10px;
+  margin-top:30px;
+}
+
+@media(min-width:600px) {
+  .grid {grid-template-columns:repeat(3,1fr)}
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+<header>
+  <div class="brand">
+    <div class="brand-icon">⚡</div>
+    <div>
+      <h1>ALERTA GPS</h1>
+      <small>INFORMAÇÃO EM TEMPO REAL</small>
+    </div>
+  </div>
+  <div class="status">● ONLINE</div>
+</header>
+
+<!-- INÍCIO -->
+<section id="home" class="screen active">
+
+<div class="greeting">
+  <h2>Olá! 👋</h2>
+  <p>Sua central de informações e alertas.</p>
+</div>
+
+<div class="search">
+  <span>🔎</span>
+  <input id="searchModules" placeholder="Pesquisar serviços e alertas...">
+</div>
+
+<div class="section-head">
+  <h3>Central de serviços</h3>
+  <span>EXPLORAR</span>
+</div>
+
+<div class="grid" id="moduleGrid">
+
+<button class="module" data-name="clima previsão tempo radar" onclick="openScreen('clima')">
+  <div class="module-icon blue">🌤️</div>
+  <h4>Clima e Radar</h4>
+  <p>Previsão, chuva e condições meteorológicas.</p>
+</button>
+
+<button class="module" data-name="radio notícias música trânsito" onclick="openScreen('radio')">
+  <div class="module-icon purple">📻</div>
+  <h4>Rádios ao vivo</h4>
+  <p>Notícias e informações de trânsito.</p>
+</button>
+
+<button class="module" data-name="trânsito rodovias acidentes obras" onclick="openScreen('transito')">
+  <div class="module-icon green">🚦</div>
+  <h4>Trânsito</h4>
+  <p>Rodovias, ocorrências e mobilidade.</p>
+</button>
+
+<button class="module" data-name="energia cpfl falta luz" onclick="openScreen('energia')">
+  <div class="module-icon yellow">⚡</div>
+  <h4>Energia</h4>
+  <p>Informações sobre interrupções elétricas.</p>
+</button>
+
+<button class="module" data-name="notícias notícias notícias" onclick="openScreen('noticias')">
+  <div class="module-icon orange">📰</div>
+  <h4>Notícias</h4>
+  <p>Informações e acontecimentos.</p>
+</button>
+
+<button class="module" data-name="sos emergência segurança" onclick="openScreen('sos')">
+  <div class="module-icon red">🛡️</div>
+  <h4>Emergência SOS</h4>
+  <p>Acesso rápido a serviços de emergência.</p>
+</button>
+
+</div>
+
+<div class="section-head">
+  <h3>Informações úteis</h3>
+</div>
+
+<div class="notice">
+  <strong>📡 Central de informações</strong>
+  <p>Consulte os módulos para acompanhar condições meteorológicas, notícias, trânsito e serviços.</p>
+</div>
+
+</section>
+
+<!-- CLIMA -->
+<section id="clima" class="screen">
+<button class="back" onclick="openScreen('home')">← Voltar</button>
+<div class="section-head"><h3>🌤️ Clima e Radar</h3></div>
+<div class="panel">
+<h3>Previsão do tempo</h3>
+<p>Área preparada para integrar previsão meteorológica, temperatura, alertas de chuva, vento, tempestades e radar de precipitação.</p>
+</div>
+<div class="panel">
+<h3>Radar meteorológico</h3>
+<p>O mapa de radar será integrado nesta área.</p>
+</div>
+</section>
+
+<!-- RÁDIO -->
+<section id="radio" class="screen">
+<button class="back" onclick="openScreen('home')">← Voltar</button>
+<div class="section-head"><h3>📻 Rádios ao vivo</h3></div>
+<div class="panel">
+<h3>Notícias e trânsito</h3>
+<p>Escolha sua emissora e acesse sua transmissão.</p>
+</div>
+<div id="radioList"></div>
+</section>
+
+<!-- TRÂNSITO -->
+<section id="transito" class="screen">
+<button class="back" onclick="openScreen('home')">← Voltar</button>
+<div class="section-head"><h3>🚦 Trânsito e Rodovias</h3></div>
+<div class="panel">
+<h3>Rodovias de São Paulo</h3>
+<p>Área para integração de acidentes, obras, congestionamentos, interdições e câmeras públicas.</p>
+</div>
+<div class="panel">
+<h3>Transporte público</h3>
+<p>Área para informações de Metrô, CPTM, EMTU, SPTrans e linhas ferroviárias.</p>
+</div>
+</section>
+
+<!-- ENERGIA -->
+<section id="energia" class="screen">
+<button class="back" onclick="openScreen('home')">← Voltar</button>
+<div class="section-head"><h3>⚡ Energia elétrica</h3></div>
+<div class="panel">
+<h3>Interrupções no fornecimento</h3>
+<p>Área para consultar comunicados, interrupções e serviços das concessionárias de energia.</p>
+</div>
+</section>
+
+<!-- NOTÍCIAS -->
+<section id="noticias" class="screen">
+<button class="back" onclick="openScreen('home')">← Voltar</button>
+<div class="section-head"><h3>📰 Notícias</h3></div>
+<div class="panel">
+<h3>Central de notícias</h3>
+<p>Área preparada para integrar notícias locais, nacionais, meteorológicas e de mobilidade.</p>
+</div>
+</section>
+
+<!-- SOS -->
+<section id="sos" class="screen">
+<button class="back" onclick="openScreen('home')">← Voltar</button>
+<div class="section-head"><h3>🛡️ Emergência SOS</h3></div>
+<div class="panel">
+<h3>Serviços de emergência</h3>
+<p>Polícia Militar: 190</p>
+<p>Bombeiros: 193</p>
+<p>SAMU: 192</p>
+<p>Defesa Civil: 199</p>
+</div>
+<div class="notice">
+<strong>Importante</strong>
+<p>Em uma emergência real, ligue diretamente para o serviço competente. O aplicativo não substitui os serviços oficiais.</p>
+</div>
+</section>
+
+<footer>
+ALERTA GPS • CENTRAL INTELIGENTE<br>
+Informações sujeitas à disponibilidade das fontes.
+</footer>
+
+</div>
+
+<!-- PLAYER -->
+<div class="player" id="player">
+  <div class="player-row">
+    <div class="player-icon">📻</div>
+    <div class="player-info">
+      <strong id="playerName">Nenhuma emissora</strong>
+      <small id="playerFrequency">Selecione uma rádio</small>
+    </div>
+    <div class="player-controls">
+      <button onclick="openRadioPage()" title="Abrir transmissão">▶</button>
+      <button class="player-close" onclick="closePlayer()">✕</button>
+    </div>
+  </div>
+  <div class="player-status" id="playerStatus">Pronto para ouvir</div>
+</div>
+
+<!-- MENU INFERIOR -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" data-screen="home" onclick="navigate('home',this)">
+    <span>⌂</span><span>Início</span>
+  </button>
+  <button class="nav-btn" data-screen="clima" onclick="navigate('clima',this)">
+    <span>🌤️</span><span>Clima</span>
+  </button>
+  <button class="nav-btn" data-screen="radio" onclick="navigate('radio',this)">
+    <span>📻</span><span>Rádio</span>
+  </button>
+  <button class="nav-btn" data-screen="transito" onclick="navigate('transito',this)">
+    <span>🚦</span><span>Trânsito</span>
+  </button>
+  <button class="nav-btn" data-screen="sos" onclick="navigate('sos',this)">
+    <span>🛡️</span><span>SOS</span>
+  </button>
+</nav>
+
+<script>
+const radios = [
+ {
+  name:"BandNews FM São Paulo",
+  frequency:"96,9 FM",
+  url:"https://www.band.com.br/ao-vivo/bandnews-fm"
+ },
+ {
+  name:"Rádio Trânsito SP",
+  frequency:"Notícias e trânsito",
+  url:"https://www.band.com.br/ao-vivo"
+ },
+ {
+  name:"CBN São Paulo",
+  frequency:"90,5 FM",
+  url:"https://cbn.globoradio.globo.com/"
+ },
+ {
+  name:"Rádio Bandeirantes SP",
+  frequency:"107,3 FM",
+  url:"https://www.band.com.br/ao-vivo/bandeirantes"
+ },
+ {
+  name:"TMC São Paulo",
+  frequency:"Notícias",
+  url:"https://tmc.com.br/ao-vivo/"
+ },
+ {
+  name:"Jovem Pan News",
+  frequency:"Notícias",
+  url:"https://jovempan.com.br/ao-vivo/"
+ }
+];
+
+let selectedRadio = null;
+
+function openScreen(id) {
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+
+  document.querySelectorAll(".nav-btn").forEach(b=>{
+    b.classList.toggle("active",b.dataset.screen===id);
+  });
+
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+function navigate(id,button) {
+  openScreen(id);
+}
+
+function renderRadios() {
+  const list=document.getElementById("radioList");
+
+  radios.forEach((radio,index)=>{
+    const item=document.createElement("div");
+    item.className="radio";
+
+    const logo=document.createElement("div");
+    logo.className="radio-logo";
+    logo.textContent="📡";
+
+    const info=document.createElement("div");
+    info.className="radio-info";
+
+    const name=document.createElement("strong");
+    name.textContent=radio.name;
+
+    const frequency=document.createElement("small");
+    frequency.textContent=radio.frequency;
+
+    info.append(name,frequency);
+
+    const button=document.createElement("button");
+    button.className="listen";
+    button.textContent="OUVIR ▶";
+    button.onclick=()=>selectRadio(index);
+
+    item.append(logo,info,button);
+    list.appendChild(item);
+  });
+}
+
+function selectRadio(index) {
+  selectedRadio=radios[index];
+
+  document.getElementById("player").classList.add("show");
+  document.getElementById("playerName").textContent=selectedRadio.name;
+  document.getElementById("playerFrequency").textContent=selectedRadio.frequency;
+  document.getElementById("playerStatus").textContent="Emissora selecionada. Toque em ▶ para abrir a transmissão.";
+
+  openRadioPage();
+}
+
+function openRadioPage() {
+  if(!selectedRadio) return;
+  window.open(selectedRadio.url,"_blank","noopener,noreferrer");
+}
+
+function closePlayer() {
+  document.getElementById("player").classList.remove("show");
+  selectedRadio=null;
+}
+
+document.getElementById("searchModules").addEventListener("input",function(){
+  const query=this.value.toLowerCase().trim();
+
+  document.querySelectorAll(".module").forEach(card=>{
+    card.style.display=card.dataset.name.includes(query)?"block":"none";
+  });
+});
+
+renderRadios();
+</script>
+
+</body>
+</html>
